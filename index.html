@@ -6,6 +6,11 @@
 <title>VITAL-PAL — Dual-Mode Remote Health Monitor</title>
 <script src="https://cdn.tailwindcss.com/3.4.17"></script>
 <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+
+<!-- Firebase Compatibility SDKs -->
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+
 <style>
 :root{--bg:#F4F5F0;--ink:#111827;--mint:#10B981;--neon:#00E676;--slate:#090D16;--card:#fff;--muted:#6b7280;
 box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
@@ -91,12 +96,12 @@ td,th{padding:.9rem 1rem;vertical-align:top;border-top:1px solid rgba(128,128,12
  <div class="grid md:grid-cols-2 gap-6 items-stretch">
   <div class="rounded-[2rem] overflow-hidden relative min-h-[320px]" style="background:var(--slate)">
    <canvas id="matrix" class="w-full h-full absolute inset-0"></canvas>
-   <div id="phase" class="mono absolute left-5 top-4 text-xs" style="color:var(--neon)">PHASE 01 · RAW SIGNAL</div>
+   <div id="phase" class="mono absolute left-5 top-4 text-xs" style="color:var(--neon)">PHASE 01 · REAL-TIME ACQUISITION</div>
   </div>
   <div id="steps">
    <div class="step on" data-i="0"><div class="flex gap-4 items-center"><span class="num display">01</span><div><h3 class="display text-2xl">Acquire</h3><p class="body mono text-sm mt-2">MAX30102 PPG sampled at 400 Hz + AD8232 ECG read via Analog Pin A0. Raw data rides on a ~600 DC offset with noise.</p></div></div></div>
    <div class="step" data-i="1"><div class="flex gap-4 items-center"><span class="num display">02</span><div><h3 class="display text-2xl">Filter</h3><p class="body mono text-sm mt-2">Arduino DSP zero-centers the signal by removing the ~600 DC offset, with auto-reset pulse memory when the finger lifts.</p></div></div></div>
-   <div class="step" data-i="2"><div class="flex gap-4 items-center"><span class="num display">03</span><div><h3 class="display text-2xl">Telemetry</h3><p class="body mono text-sm mt-2">Dual output: 100 Hz real-time Bluetooth SPP stream + 15 s HTTP 200 ThingSpeak cloud logging.</p></div></div></div>
+   <div class="step" data-i="2"><div class="flex gap-4 items-center"><span class="num display">03</span><div><h3 class="display text-2xl">Telemetry</h3><p class="body mono text-sm mt-2">Dual output: 100 Hz real-time Web Serial / SPP stream + Automatic 1 Hz batched Firebase Database recording.</p></div></div></div>
    <div class="step" style="cursor:default;padding:0"></div>
   </div>
  </div>
@@ -104,34 +109,45 @@ td,th{padding:.9rem 1rem;vertical-align:top;border-top:1px solid rgba(128,128,12
 
 <!-- LIVE -->
 <section id="live" class="px-4 py-16 max-w-6xl mx-auto">
- <div class="flex flex-wrap items-end justify-between gap-4 mb-6">
+ <div class="flex flex-wrap items-end justify-between gap-4 mb-4">
   <h2 class="display text-4xl md:text-6xl">Live <span style="color:var(--mint)">Vitals</span></h2>
   <div class="tog flex flex-wrap rounded-2xl p-1" style="background:var(--card)">
-   <button id="mLive">Live Serial Stream (COM / Web Bluetooth)</button><button id="mCloud">ThingSpeak Cloud</button><button id="mSim" class="on">Simulated Bio-Signals</button>
+   <button id="mLive" class="on">Live Serial Stream (COM / USB)</button><button id="mCloud">ThingSpeak Cloud</button>
   </div>
  </div>
+
+ <!-- FIREBASE AUTOMATIC LOGGING BADGE -->
+ <div class="panel mb-5 flex flex-wrap items-center justify-between gap-4">
+  <div class="flex items-center gap-3">
+   <span class="w-3 h-3 rounded-full beat" style="background:var(--neon); box-shadow:0 0 10px var(--neon)"></span>
+   <span id="dbStatus" class="mono text-xs font-bold" style="color:var(--neon)">Firebase Recording Permanent &amp; Active</span>
+  </div>
+  <div id="dbCounter" class="mono text-xs font-bold" style="color:var(--mint)">0 samples logged</div>
+ </div>
+
  <div id="cfg" class="mono text-xs flex-wrap gap-2 mb-5" style="display:none">
   <input id="chId" value="3546624" class="panel px-4 py-2 w-40" style="border-radius:999px" aria-label="Channel ID">
-  <input id="chKey" value="MJRP0Y9D6ELJ0L9S" type="password" placeholder="Read API Key (channel is private)" class="panel px-4 py-2 w-72" style="border-radius:999px" aria-label="Read API key">
+  <input id="chKey" value="MJRP0Y9D6ELJ0L9S" type="password" placeholder="Read API Key" class="panel px-4 py-2 w-72" style="border-radius:999px" aria-label="Read API key">
   <button id="chGo" class="cta">Fetch now</button>
  </div>
+
  <div class="grid lg:grid-cols-3 gap-5">
   <div class="panel lg:col-span-2" style="background:var(--slate);color:#fff">
-   <div class="mono text-xs flex justify-between mb-2"><span id="ecgLbl" style="color:var(--neon)">ECG · LEAD I</span><span id="src">SIMULATED</span></div>
+   <div class="mono text-xs flex justify-between mb-2"><span id="ecgLbl" style="color:var(--neon)">ECG · LEAD I</span><span id="src">AWAITING SERIAL STREAM</span></div>
    <canvas id="ecg" class="w-full" style="height:260px"></canvas>
    <div class="mono text-[10px] opacity-60 mt-1">AMPLITUDE RANGE −150 … +250 · ZERO-CENTERED</div>
   </div>
   <div class="grid gap-5">
    <div class="panel"><div class="mono text-xs" style="color:var(--muted)">HEART RATE</div>
-    <div class="flex items-baseline gap-2"><span id="bpm" class="display text-7xl">74</span><span class="mono">BPM</span><span class="beat ml-auto text-3xl" style="color:var(--mint)">♥</span></div>
-    <div id="lock" class="mono text-xs mt-1" style="color:var(--mint)">● LOCKED / FINGER DETECTED</div></div>
+    <div class="flex items-baseline gap-2"><span id="bpm" class="display text-7xl">--</span><span class="mono">BPM</span><span class="beat ml-auto text-3xl" style="color:var(--mint)">♥</span></div>
+    <div id="lock" class="mono text-xs mt-1" style="color:var(--muted)">○ SEARCHING SENSOR...</div></div>
    <div class="panel"><div class="mono text-xs" style="color:var(--muted)">SIGNAL INTEGRITY · V<sub>p-p</sub></div>
     <div class="flex items-baseline gap-2"><span id="vpp" class="display text-4xl">0</span><span class="mono text-sm">units</span></div>
-    <div class="h-2 rounded-full mt-2" style="background:rgba(128,128,128,.25)"><div id="vppBar" class="h-2 rounded-full" style="background:var(--mint);width:50%;transition:.3s"></div></div>
-    <div id="leads" class="mono text-xs mt-2" style="color:var(--mint)">● LEADS CONNECTED</div></div>
+    <div class="h-2 rounded-full mt-2" style="background:rgba(128,128,128,.25)"><div id="vppBar" class="h-2 rounded-full" style="background:var(--mint);width:0%;transition:.3s"></div></div>
+    <div id="leads" class="mono text-xs mt-2" style="color:#ef4444">○ NO SIGNAL</div></div>
   </div>
   <div class="panel lg:col-span-3">
-   <div class="flex items-center justify-between mb-2"><div class="mono text-xs" style="color:var(--muted)">CLOUD SYNC · THINGSPEAK CHANNEL</div><span id="cbadge" class="mono text-xs px-3 py-1 rounded-full" style="background:var(--mint);color:#fff">CONNECTED</span></div>
+   <div class="flex items-center justify-between mb-2"><div class="mono text-xs" style="color:var(--muted)">DATABASE SYNC LOGS</div><span id="cbadge" class="mono text-xs px-3 py-1 rounded-full" style="background:var(--mint);color:#fff">PERMANENT LOGGING</span></div>
    <div id="log" class="mono text-xs h-24 overflow-y-auto space-y-1"></div>
   </div>
  </div>
@@ -145,10 +161,10 @@ td,th{padding:.9rem 1rem;vertical-align:top;border-top:1px solid rgba(128,128,12
    <thead><tr class="display"><th class="w-1/2">Arduino Uno · DSP</th><th>ESP32 · Gateway</th></tr></thead>
    <tbody>
     <tr><td>Reads AD8232 ECG on analog pin A0</td><td>Receives framed serial data from the Arduino</td></tr>
-    <tr><td>Polls MAX30102 PPG at 400 Hz over I²C</td><td>Streams 100 Hz over Bluetooth SPP</td></tr>
-    <tr><td>Removes ~600 DC offset (zero-centering)</td><td>Joins Wi-Fi and POSTs to ThingSpeak every 15 s</td></tr>
-    <tr><td>Auto-resets pulse memory on finger loss</td><td>Verifies HTTP 200 and logs sync status</td></tr>
-    <tr><td>Beat detection and BPM computation</td><td>Handles reconnects and buffering</td></tr>
+    <tr><td>Polls MAX30102 PPG at 400 Hz over I²C</td><td>Streams 100 Hz raw data over Web Serial / SPP</td></tr>
+    <tr><td>Removes ~600 DC offset (zero-centering)</td><td>Batches 100 Hz telemetry into 1s Firebase packets</td></tr>
+    <tr><td>Auto-resets pulse memory on finger loss</td><td>Permanent, automatic time-series database persistence</td></tr>
+    <tr><td>Beat detection and BPM computation</td><td>Handles cloud sync, reconnects, and logging</td></tr>
    </tbody>
   </table>
  </div>
@@ -157,51 +173,76 @@ td,th{padding:.9rem 1rem;vertical-align:top;border-top:1px solid rgba(128,128,12
 
 <script>
 const $=s=>document.querySelector(s);
-// ECG model: one cardiac cycle t in [0,1)
-const g=(t,c,w,a)=>a*Math.exp(-((t-c)**2)/(2*w*w));
-const cycle=t=>g(t,.18,.035,20)+g(t,.30,.008,-30)+g(t,.32,.011,240)+g(t,.345,.01,-60)+g(t,.6,.06,45);
+
+// ==========================================
+// FIREBASE PERMANENT LOGGING ENGINE
+// ==========================================
+const firebaseConfig = {
+  databaseURL: "https://vital-pal-db-default-rtdb.firebaseio.com"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+// Automatic Session Creation
+const currentSessionId = 'session_' + Date.now();
+let dbBuffer = [];
+let totalLoggedSamples = 0;
+
+const dbStatus = $('#dbStatus');
+const dbCounter = $('#dbCounter');
+
+dbStatus.textContent = `Logging Active -> /sessions/${currentSessionId}`;
+
+// 1-Second Continuous Batch Flusher (100 Hz -> 1s Packet)
+setInterval(() => {
+  if (dbBuffer.length > 0) {
+    const batchToSend = [...dbBuffer];
+    dbBuffer = []; // Clear local queue
+    totalLoggedSamples += batchToSend.length;
+    dbCounter.textContent = `${totalLoggedSamples} samples saved`;
+
+    db.ref(`sessions/${currentSessionId}`).push({
+      batch_time: new Date().toISOString(),
+      samples_count: batchToSend.length,
+      readings: batchToSend
+    }).then(() => {
+      addLog(`[Firebase Permanent Sync] ${batchToSend.length} points logged`);
+    }).catch(err => {
+      addLog(`[Firebase Error] ${err.message}`);
+    });
+  }
+}, 1000);
+
+// ==========================================
+// CANVAS & WAVEFORM RENDERERS (NO SIMULATION)
+// ==========================================
 function fit(c){const d=devicePixelRatio||1,r=c.getBoundingClientRect();c.width=r.width*d;c.height=r.height*d;c.getContext('2d').setTransform(d,0,0,d,0,0);return [r.width,r.height]}
 
-/* ---------- Pipeline matrix canvas ---------- */
 const mc=$('#matrix'),mx=mc.getContext('2d');let W,H,mode=0,parts=[];
-const PH=['PHASE 01 · RAW NOISE · ~600 DC OFFSET','PHASE 02 · CENTERED FILTERED WAVE','PHASE 03 · CLOUD JSON DATA STREAM'];
+const PH=['PHASE 01 · REAL-TIME SENSING','PHASE 02 · DSP ZERO-CENTERING','PHASE 03 · FIREBASE PERSISTENT STREAM'];
 function initM(){[W,H]=fit(mc);parts=Array.from({length:90},()=>({x:Math.random()*W,y:Math.random()*H,v:.5+Math.random()*2}))}
 let mt=0;
+
 function drawM(){
  mx.fillStyle='rgba(9,13,22,.22)';mx.fillRect(0,0,W,H);mt+=.012;
  mx.fillStyle='rgba(16,185,129,.5)';
  parts.forEach(p=>{p.y+=p.v;if(p.y>H){p.y=0;p.x=Math.random()*W}mx.fillRect(p.x,p.y,2,2)});
- if(mode===2){mx.font='12px JetBrains Mono, monospace';mx.fillStyle='#00E676';
-  const bpm=70+Math.round(Math.sin(mt)*4);
-  ['{','  "channel": 2841197,','  "field1": '+bpm+',','  "field2": '+(Math.round(Math.sin(mt*3)*40)+180)+',','  "status": 200,','  "interval": "15s"','}'].forEach((l,i)=>mx.fillText(l,24,70+i*20));
-  mx.fillStyle='rgba(0,230,118,.8)';const x=(mt*160)%W;mx.beginPath();mx.arc(x,H-40,5,0,7);mx.fill();
- } else {
-  mx.strokeStyle='#00E676';mx.lineWidth=2.2;mx.shadowColor='#00E676';mx.shadowBlur=10;mx.beginPath();
-  for(let x=0;x<W;x+=3){const t=((x/W)*2+mt*.6)%1;let v=cycle(t);
-   const base=mode===0?H*.3:H*.55;
-   if(mode===0)v+=(Math.random()-.5)*70+Math.sin(x*.05+mt*5)*15;
-   const y=base-v*(H*.0012*(mode===0?1:1.1)*1.6);x?mx.lineTo(x,y):mx.moveTo(x,y)}
-  mx.stroke();mx.shadowBlur=0;
-  if(mode===0){mx.setLineDash([4,6]);mx.strokeStyle='rgba(255,255,255,.35)';mx.beginPath();mx.moveTo(0,H*.3);mx.lineTo(W,H*.3);mx.stroke();mx.setLineDash([])}
-  mx.fillStyle='#fff';mx.font='11px JetBrains Mono, monospace';
-  mx.fillText(mode===0?'RAW  ≈ 600 + signal':'ZERO LINE (0)',24,H-24);
-  if(mode===1){mx.strokeStyle='rgba(255,255,255,.3)';mx.beginPath();mx.moveTo(0,H*.55);mx.lineTo(W,H*.55);mx.stroke()}
- }
- requestAnimationFrame(drawM)}
+ 
+ mx.font='12px JetBrains Mono, monospace';mx.fillStyle='#00E676';
+ ['{','  "database": "vital-pal-db",','  "session": "'+currentSessionId+'",','  "mode": "Permanent Streaming",','  "batch_interval": "1000ms",','  "status": "recording"','}'].forEach((l,i)=>mx.fillText(l,24,70+i*20));
+ 
+ requestAnimationFrame(drawM);
+}
+
 function setStep(i){mode=i;$('#phase').textContent=PH[i];document.querySelectorAll('.step[data-i]').forEach(s=>s.classList.toggle('on',+s.dataset.i===i))}
 document.querySelectorAll('.step[data-i]').forEach(s=>{s.addEventListener('click',()=>setStep(+s.dataset.i));s.addEventListener('mouseenter',()=>setStep(+s.dataset.i))});
 
-/* ---------- Live ECG ---------- */
-const ec=$('#ecg'),ex=ec.getContext('2d');let EW,EH,buf=[],live=false,phase=0,hr=74,lastBeat=0,rr=[];
+/* ---------- Live ECG Renderer ---------- */
+const ec=$('#ecg'),ex=ec.getContext('2d');let EW,EH,buf=[],live=true,cloud=false,lastBeat=0,rr=[];
 const N=500;
 function initE(){[EW,EH]=fit(ec);buf=new Array(N).fill(0)}
 function pushSample(v){buf.push(v);if(buf.length>N)buf.shift()}
-let sim=0;
-function tick(){ // 100 Hz sim
- if(live||cloud)return;
- hr+=(74+Math.sin(sim/400)*5-hr)*.01;phase+=hr/60/100;if(phase>=1)phase-=1;sim++;
- pushSample(cycle(phase)+(Math.random()-.5)*6)}
-setInterval(tick,10);
+
 function drawE(){
  ex.clearRect(0,0,EW,EH);
  const y=v=>EH-((v+150)/400)*EH;
@@ -210,34 +251,66 @@ function drawE(){
  ex.strokeStyle='rgba(16,185,129,.5)';ex.setLineDash([5,5]);ex.beginPath();ex.moveTo(0,y(0));ex.lineTo(EW,y(0));ex.stroke();ex.setLineDash([]);
  ex.strokeStyle='#00E676';ex.lineWidth=2;ex.shadowColor='#00E676';ex.shadowBlur=8;ex.beginPath();
  buf.forEach((v,i)=>{const x=i/N*EW;i?ex.lineTo(x,y(v)):ex.moveTo(x,y(v))});ex.stroke();ex.shadowBlur=0;
- requestAnimationFrame(drawE)}
-setInterval(()=>{ // vitals readout
+ requestAnimationFrame(drawE);
+}
+
+setInterval(()=>{
  if(cloud)return;
  const s=buf.slice(-300),mn=Math.min(...s),mxv=Math.max(...s),p=Math.round(mxv-mn);
  $('#vpp').textContent=p;$('#vppBar').style.width=Math.min(100,p/3)+'%';
- const ok=p>60;$('#leads').textContent=ok?'● LEADS CONNECTED':'○ LEADS OFF';$('#leads').style.color=ok?'var(--mint)':'#ef4444';
- $('#lock').textContent=ok?'● LOCKED / FINGER DETECTED':'○ SEARCHING…';$('#lock').style.color=ok?'var(--mint)':'#f59e0b';
- if(!live)$('#bpm').textContent=Math.round(hr)},500);
+ const ok=p>60;
+ $('#leads').textContent=ok?'● LEADS CONNECTED':'○ LEADS DISCONNECTED / FLAT';
+ $('#leads').style.color=ok?'var(--mint)':'#ef4444';
+ $('#lock').textContent=ok?'● LOCKED / SENSING SIGNAL':'○ SEARCHING PULSE...';
+ $('#lock').style.color=ok?'var(--mint)':'#f59e0b';
+},500);
 
-/* Live serial / bluetooth */
+/* ---------- Serial Data Stream & Ingestion ---------- */
 let DC=600;
-function ingest(line){const n=parseFloat(line);if(isNaN(n))return;DC+=(n-DC)*.01;const v=n-DC;pushSample(Math.max(-150,Math.min(250,v)));
- if(v>120&&performance.now()-lastBeat>300){const now=performance.now();if(lastBeat){rr.push(now-lastBeat);if(rr.length>6)rr.shift();$('#bpm').textContent=Math.round(60000/(rr.reduce((a,b)=>a+b)/rr.length))}lastBeat=now}}
+function ingest(line){
+  const n=parseFloat(line);if(isNaN(n))return;
+  DC+=(n-DC)*.01;
+  const filteredVal=n-DC;
+  const bpmVal = parseInt($('#bpm').textContent) || 0;
+
+  // PERMANENT FIREBASE LOGGING: Auto-push every incoming sample into batch buffer
+  dbBuffer.push({
+    ts: Date.now(),
+    raw: Math.round(n),
+    ecg: Math.round(filteredVal),
+    bpm: bpmVal
+  });
+
+  pushSample(Math.max(-150,Math.min(250,filteredVal)));
+  if(filteredVal>120&&performance.now()-lastBeat>300){
+    const now=performance.now();
+    if(lastBeat){
+      rr.push(now-lastBeat);
+      if(rr.length>6)rr.shift();
+      $('#bpm').textContent=Math.round(60000/(rr.reduce((a,b)=>a+b)/rr.length));
+    }
+    lastBeat=now;
+  }
+}
+
 async function goLive(){
  try{
-  if(!('serial' in navigator))throw new Error('Web Serial unsupported');
+  if(!('serial' in navigator))throw new Error('Web Serial unsupported in this browser');
   const port=await navigator.serial.requestPort();await port.open({baudRate:115200});
-  live=true;$('#src').textContent='LIVE · SERIAL';setMode(true);
+  live=true;$('#src').textContent='LIVE · SERIAL CONNECTED';setMode(true);
+  addLog('Web Serial connected at 115200 baud. Permanent logging streaming...');
   const dec=new TextDecoderStream();port.readable.pipeTo(dec.writable);const rd=dec.readable.getReader();let acc='';
   for(;;){const {value,done}=await rd.read();if(done)break;acc+=value;const ls=acc.split('\n');acc=ls.pop();ls.forEach(ingest)}
- }catch(e){live=false;setMode(false);addLog('Live stream unavailable ('+(e.message||'cancelled')+') — using simulation')}}
-let cloud=false,cTimer;
+ }catch(e){live=false;setMode(false);addLog('Stream status: '+(e.message||'disconnected'))}}
+
+let cTimer;
 function setMode(l,c){live=l;cloud=!!c;clearInterval(cTimer);
- $('#mLive').classList.toggle('on',l);$('#mCloud').classList.toggle('on',!!c);$('#mSim').classList.toggle('on',!l&&!c);
- if(!l&&!c)$('#src').textContent='SIMULATED';
+ $('#mLive').classList.toggle('on',l);$('#mCloud').classList.toggle('on',!!c);
+ if(!l&&!c)$('#src').textContent='AWAITING SERIAL STREAM';
  $('#cfg').style.display=c?'flex':'none';
  $('#ecgLbl').textContent=c?'ECG SIGNAL · FIELD 2 (15 s SAMPLES)':'ECG · LEAD I';
- if(!c)$('#cbadge').textContent='CONNECTED'}
+ if(!c)$('#cbadge').textContent='PERMANENT LOGGING'}
+
 async function pollCloud(){
  const id=$('#chId').value.trim(),key=$('#chKey').value.trim(),b=$('#cbadge');
  const url='https://api.thingspeak.com/channels/'+encodeURIComponent(id)+'/feeds.json?results=40'+(key?'&api_key='+encodeURIComponent(key):'');
@@ -256,19 +329,18 @@ async function pollCloud(){
   addLog('entry #'+last.entry_id+' · field1='+last.field1+' field2='+last.field2+' · '+(age<=1?'fresh':age+' min old'));
   b.textContent=age>2?'STALE ('+age+' MIN)':'CONNECTED';b.style.background=age>2?'#f59e0b':'var(--mint)';
  }catch(e){b.textContent='ERROR';b.style.background='#ef4444';
-  addLog('Cloud fetch failed: '+(e instanceof TypeError?'request blocked (host this file yourself, or check network)':e.message))}}
+  addLog('Cloud fetch failed: '+(e instanceof TypeError?'request blocked':e.message))}}
+
 function startCloud(){setMode(false,true);$('#src').textContent='CLOUD · THINGSPEAK';pollCloud();cTimer=setInterval(pollCloud,15000)}
-$('#mLive').onclick=goLive;$('#mSim').onclick=()=>setMode(false);$('#mCloud').onclick=startCloud;$('#chGo').onclick=pollCloud;
+
+$('#mLive').onclick=goLive;$('#mCloud').onclick=startCloud;$('#chGo').onclick=pollCloud;
 $('#btBtn').onclick=async()=>{const b=$('#btBtn');
- try{if(!navigator.bluetooth)throw 0;await navigator.bluetooth.requestDevice({acceptAllDevices:true});b.textContent='Bluetooth Paired ✓';addLog('BT device paired · SPP 100 Hz')}
- catch(e){b.textContent='Simulated Link ✓';addLog('Bluetooth unavailable here — simulation active')}};
+ try{if(!navigator.bluetooth)throw 0;await navigator.bluetooth.requestDevice({acceptAllDevices:true});b.textContent='Bluetooth Paired ✓';addLog('BT device paired')}
+ catch(e){b.textContent='Web Serial Mode';addLog('Connect hardware via USB COM port')}};
 
-/* Cloud log */
 function addLog(m){const d=document.createElement('div');d.textContent='['+new Date().toLocaleTimeString()+'] '+m;$('#log').prepend(d)}
-function upload(){if(cloud)return;addLog('(simulated) POST api.thingspeak.com/update → HTTP 200 · field1='+$('#bpm').textContent+' field2='+$('#vpp').textContent)}
-setTimeout(upload,1200);setInterval(upload,15000);
 
-function boot(){initM();initE()}
+function boot(){initM();initE();addLog(`[System] Initialized permanent Firebase session: ${currentSessionId}`)}
 addEventListener('resize',boot);boot();drawM();drawE();
 </script>
 </body>
