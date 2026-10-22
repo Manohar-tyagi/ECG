@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>VITAL-PAL — Dual-Mode Remote Health Monitor</title>
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#F4F5F0;--ink:#111827;--mint:#10B981;--neon:#00E676;--slate:#090D16;--card:#fff;--muted:#6b7280;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0d121c;--ink:#f1f5f0;--card:#161d2b;--muted:#94a3b8}}
+html{scroll-behavior:smooth;scroll-padding-top:90px}
+body{background:var(--bg);color:var(--ink);font-family:'Space Grotesk',system-ui,sans-serif;overflow-x:hidden}
+.display{font-family:'Archivo Black','Arial Black',sans-serif;text-transform:uppercase;letter-spacing:-.02em}
+.mono{font-family:'JetBrains Mono',ui-monospace,monospace}
+.pill{background:#111827;color:#fff;border-radius:999px;padding:.5rem 1rem;font-size:.85rem;transition:.2s}
+.pill:hover{background:var(--mint)}
+.cta{background:var(--neon);color:#052e1a;font-weight:700;border-radius:999px;padding:.55rem 1.1rem;font-size:.85rem;box-shadow:0 0 0 0 rgba(0,230,118,.6);animation:glow 2.4s infinite;transition:.2s}
+.cta:hover{box-shadow:0 0 28px 6px rgba(0,230,118,.55);transform:translateY(-1px)}
+@keyframes glow{0%{box-shadow:0 0 0 0 rgba(0,230,118,.55)}70%{box-shadow:0 0 0 14px rgba(0,230,118,0)}100%{box-shadow:0 0 0 0 rgba(0,230,118,0)}}
+.tcard{background:var(--card);border-radius:1.5rem;padding:.6rem;box-shadow:0 18px 40px -12px rgba(17,24,39,.3);transform:rotate(var(--r));transition:transform .35s;animation:bob 6s ease-in-out infinite}
+.tcard:hover{transform:rotate(0) scale(1.05) translateY(-6px)}
+@keyframes bob{50%{translate:0 -8px}}
+.tcard svg{border-radius:1.1rem;width:100%;height:auto;display:block}
+.tag{font-size:.7rem;padding:.4rem .6rem .1rem}
+.draw{stroke-dasharray:900;stroke-dashoffset:900;animation:dr 3s ease forwards infinite alternate}
+@keyframes dr{to{stroke-dashoffset:0}}
+.step{border-top:1px solid rgba(128,128,128,.3);padding:1.1rem 0;cursor:pointer;position:relative}
+.step .num{font-size:4rem;line-height:1;color:rgba(128,128,128,.22);transition:.3s}
+.step.on .num{color:var(--mint)}
+.step .body{max-height:0;overflow:hidden;transition:max-height .4s;color:var(--muted)}
+.step.on .body{max-height:200px}
+.panel{background:var(--card);border-radius:1.5rem;padding:1.25rem;box-shadow:0 10px 30px -14px rgba(17,24,39,.25)}
+.tog button{padding:.5rem 1rem;border-radius:999px;font-size:.8rem}
+.tog button.on{background:#111827;color:#fff}
+td,th{padding:.9rem 1rem;vertical-align:top;border-top:1px solid rgba(128,128,128,.25)}
+.beat{animation:beat 1s infinite}
+@keyframes beat{50%{transform:scale(1.15)}}
+</style>
+</head>
+<body>
+
+<header class="fixed left-0 right-0 z-50 flex justify-center px-3" style="top:calc(env(safe-area-inset-top,0px) + 12px)">
+ <div class="w-full max-w-5xl flex items-center justify-between gap-2 rounded-full px-3 py-2 backdrop-blur" style="background:color-mix(in srgb,var(--card) 85%,transparent);box-shadow:0 8px 30px -10px rgba(0,0,0,.3)">
+  <a href="#top" class="flex items-center gap-2 display text-lg pl-2"><span class="w-3 h-3 rounded-full" style="background:var(--neon);box-shadow:0 0 10px var(--neon)"></span>VITAL-PAL</a>
+  <nav class="hidden md:flex gap-2">
+   <a class="pill" href="#top">Overview</a><a class="pill" href="#hardware">Hardware</a><a class="pill" href="#dsp">DSP Filter</a><a class="pill" href="#live">Live Telemetry</a>
+  </nav>
+  <button id="btBtn" class="cta">Connect Bluetooth</button>
+ </div>
+</header>
+
+<!-- HERO -->
+<section id="top" class="relative px-4 pt-32 pb-16 max-w-6xl mx-auto">
+ <div class="relative text-center">
+  <div class="relative inline-block">
+   <h1 class="display text-[17vw] md:text-[9.5rem] leading-none">VITAL-PAL</h1>
+   <svg class="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 800 200" preserveAspectRatio="none" fill="none" stroke="#00E676" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+    <path class="draw" d="M10 110 L180 110 L210 60 L240 150 L270 40 L300 110 L520 110 L545 85 L570 130 L590 110 L790 110"/>
+    <ellipse class="draw" cx="400" cy="100" rx="392" ry="88" stroke-width="3" style="animation-delay:.5s"/>
+    <path d="M770 20 l0 22 M759 31 l22 0 M30 170 l0 16 M22 178 l16 0" stroke-width="4"/>
+   </svg>
+  </div>
+  <p class="mx-auto mt-8 max-w-xl text-lg md:text-xl" style="color:var(--muted)">Dual-mode IoT telemetry engine for real-time PPG pulse tracking &amp; zero-centered ECG acquisition.</p>
+ </div>
+
+ <div id="hardware" class="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mt-14">
+  <figure class="tcard" style="--r:-4deg">
+   <svg viewBox="0 0 200 150"><rect width="200" height="150" fill="#0f766e"/><rect x="25" y="30" width="150" height="90" rx="8" fill="#0e9aa7" stroke="#fff" stroke-width="2"/><rect x="10" y="50" width="30" height="35" fill="#cbd5e1"/><rect x="60" y="45" width="60" height="22" fill="#111827"/><circle cx="145" cy="80" r="14" fill="#111827"/><g fill="#facc15"><rect x="50" y="100" width="4" height="12"/><rect x="62" y="100" width="4" height="12"/><rect x="74" y="100" width="4" height="12"/><rect x="86" y="100" width="4" height="12"/></g><text x="100" y="92" fill="#fff" font-size="12" font-weight="700" text-anchor="middle">UNO</text></svg>
+   <figcaption class="tag mono">ARDUINO UNO · DSP</figcaption></figure>
+  <figure class="tcard" style="--r:3deg;animation-delay:-1s">
+   <svg viewBox="0 0 200 150"><rect width="200" height="150" fill="#14532d"/><rect x="50" y="20" width="100" height="70" rx="6" fill="#dc2626"/><rect x="65" y="35" width="30" height="24" fill="#111827"/><text x="100" y="78" fill="#fff" font-size="10" font-family="monospace" text-anchor="middle">AD8232</text><path d="M60 90 C 40 120, 30 120, 25 140 M100 90 C 100 120, 100 125, 100 142 M140 90 C 160 120, 170 120, 175 140" stroke="#e5e7eb" stroke-width="3" fill="none"/><circle cx="25" cy="140" r="7" fill="#00E676"/><circle cx="100" cy="142" r="7" fill="#00E676"/><circle cx="175" cy="140" r="7" fill="#00E676"/></svg>
+   <figcaption class="tag mono">AD8232 · 3-LEAD ECG</figcaption></figure>
+  <figure class="tcard" style="--r:4deg;animation-delay:-2s">
+   <svg viewBox="0 0 200 150"><rect width="200" height="150" fill="#1e1b4b"/><rect x="55" y="30" width="90" height="90" rx="6" fill="#1d4ed8"/><circle cx="100" cy="75" r="26" fill="#0f172a" stroke="#cbd5e1" stroke-width="3"/><circle cx="100" cy="75" r="12" fill="#ef4444"><animate attributeName="opacity" values="1;.2;1" dur="1s" repeatCount="indefinite"/></circle><circle cx="100" cy="75" r="20" fill="none" stroke="#ef4444" stroke-width="1"><animate attributeName="r" values="12;36" dur="1s" repeatCount="indefinite"/><animate attributeName="opacity" values=".8;0" dur="1s" repeatCount="indefinite"/></circle><text x="100" y="112" fill="#fff" font-size="9" font-family="monospace" text-anchor="middle">MAX30102</text></svg>
+   <figcaption class="tag mono">MAX30102 · OPTICAL PPG</figcaption></figure>
+  <figure class="tcard" style="--r:-3deg;animation-delay:-3s">
+   <svg viewBox="0 0 200 150"><rect width="200" height="150" fill="#0c4a6e"/><rect x="60" y="45" width="80" height="60" rx="5" fill="#111827" stroke="#9ca3af"/><rect x="75" y="55" width="40" height="26" fill="#9ca3af"/><text x="100" y="97" fill="#00E676" font-size="10" font-family="monospace" text-anchor="middle">ESP32</text><g fill="none" stroke="#00E676" stroke-width="2.5" stroke-linecap="round"><path d="M100 36 a22 22 0 0 1 0 0"/><path d="M82 30 a26 26 0 0 1 36 0"><animate attributeName="opacity" values="1;.1;1" dur="1.6s" repeatCount="indefinite"/></path><path d="M72 20 a40 40 0 0 1 56 0"><animate attributeName="opacity" values=".1;1;.1" dur="1.6s" repeatCount="indefinite"/></path></g><path d="M158 70 l14 12 -14 12 M158 70 l0 24 M158 82 l14 -12 M158 94 l14 -12" stroke="#38bdf8" stroke-width="2.5" fill="none"/></svg>
+   <figcaption class="tag mono">ESP32 · WI-FI + BLE GATEWAY</figcaption></figure>
+ </div>
+
+ <div class="mono text-xs md:text-sm flex justify-between mt-10 pt-4 border-t" style="border-color:rgba(128,128,128,.3)">
+  <span>HARDWARE / ARDUINO + ESP32 GATEWAY</span><a href="#dsp" class="font-bold" style="color:var(--mint)">DISCOVER →</a>
+ </div>
+</section>
+
+<!-- PIPELINE -->
+<section id="dsp" class="px-4 py-16 max-w-6xl mx-auto">
+ <h2 class="display text-4xl md:text-6xl mb-8">Signal <span style="color:var(--mint)">Pipeline</span></h2>
+ <div class="grid md:grid-cols-2 gap-6 items-stretch">
+  <div class="rounded-[2rem] overflow-hidden relative min-h-[320px]" style="background:var(--slate)">
+   <canvas id="matrix" class="w-full h-full absolute inset-0"></canvas>
+   <div id="phase" class="mono absolute left-5 top-4 text-xs" style="color:var(--neon)">PHASE 01 · RAW SIGNAL</div>
+  </div>
+  <div id="steps">
+   <div class="step on" data-i="0"><div class="flex gap-4 items-center"><span class="num display">01</span><div><h3 class="display text-2xl">Acquire</h3><p class="body mono text-sm mt-2">MAX30102 PPG sampled at 400 Hz + AD8232 ECG read via Analog Pin A0. Raw data rides on a ~600 DC offset with noise.</p></div></div></div>
+   <div class="step" data-i="1"><div class="flex gap-4 items-center"><span class="num display">02</span><div><h3 class="display text-2xl">Filter</h3><p class="body mono text-sm mt-2">Arduino DSP zero-centers the signal by removing the ~600 DC offset, with auto-reset pulse memory when the finger lifts.</p></div></div></div>
+   <div class="step" data-i="2"><div class="flex gap-4 items-center"><span class="num display">03</span><div><h3 class="display text-2xl">Telemetry</h3><p class="body mono text-sm mt-2">Dual output: 100 Hz real-time Bluetooth SPP stream + 15 s HTTP 200 ThingSpeak cloud logging.</p></div></div></div>
+   <div class="step" style="cursor:default;padding:0"></div>
+  </div>
+ </div>
+</section>
+
+<!-- LIVE -->
+<section id="live" class="px-4 py-16 max-w-6xl mx-auto">
+ <div class="flex flex-wrap items-end justify-between gap-4 mb-6">
+  <h2 class="display text-4xl md:text-6xl">Live <span style="color:var(--mint)">Vitals</span></h2>
+  <div class="tog flex flex-wrap rounded-2xl p-1" style="background:var(--card)">
+   <button id="mLive">Live Serial Stream (COM / Web Bluetooth)</button><button id="mCloud">ThingSpeak Cloud</button><button id="mSim" class="on">Simulated Bio-Signals</button>
+  </div>
+ </div>
+ <div id="cfg" class="mono text-xs flex-wrap gap-2 mb-5" style="display:none">
+  <input id="chId" value="3546624" class="panel px-4 py-2 w-40" style="border-radius:999px" aria-label="Channel ID">
+  <input id="chKey" value="MJRP0Y9D6ELJ0L9S" type="password" placeholder="Read API Key (channel is private)" class="panel px-4 py-2 w-72" style="border-radius:999px" aria-label="Read API key">
+  <button id="chGo" class="cta">Fetch now</button>
+ </div>
+ <div class="grid lg:grid-cols-3 gap-5">
+  <div class="panel lg:col-span-2" style="background:var(--slate);color:#fff">
+   <div class="mono text-xs flex justify-between mb-2"><span id="ecgLbl" style="color:var(--neon)">ECG · LEAD I</span><span id="src">SIMULATED</span></div>
+   <canvas id="ecg" class="w-full" style="height:260px"></canvas>
+   <div class="mono text-[10px] opacity-60 mt-1">AMPLITUDE RANGE −150 … +250 · ZERO-CENTERED</div>
+  </div>
+  <div class="grid gap-5">
+   <div class="panel"><div class="mono text-xs" style="color:var(--muted)">HEART RATE</div>
+    <div class="flex items-baseline gap-2"><span id="bpm" class="display text-7xl">74</span><span class="mono">BPM</span><span class="beat ml-auto text-3xl" style="color:var(--mint)">♥</span></div>
+    <div id="lock" class="mono text-xs mt-1" style="color:var(--mint)">● LOCKED / FINGER DETECTED</div></div>
+   <div class="panel"><div class="mono text-xs" style="color:var(--muted)">SIGNAL INTEGRITY · V<sub>p-p</sub></div>
+    <div class="flex items-baseline gap-2"><span id="vpp" class="display text-4xl">0</span><span class="mono text-sm">units</span></div>
+    <div class="h-2 rounded-full mt-2" style="background:rgba(128,128,128,.25)"><div id="vppBar" class="h-2 rounded-full" style="background:var(--mint);width:50%;transition:.3s"></div></div>
+    <div id="leads" class="mono text-xs mt-2" style="color:var(--mint)">● LEADS CONNECTED</div></div>
+  </div>
+  <div class="panel lg:col-span-3">
+   <div class="flex items-center justify-between mb-2"><div class="mono text-xs" style="color:var(--muted)">CLOUD SYNC · THINGSPEAK CHANNEL</div><span id="cbadge" class="mono text-xs px-3 py-1 rounded-full" style="background:var(--mint);color:#fff">CONNECTED</span></div>
+   <div id="log" class="mono text-xs h-24 overflow-y-auto space-y-1"></div>
+  </div>
+ </div>
+</section>
+
+<!-- SPECS -->
+<section class="px-4 py-16 max-w-6xl mx-auto">
+ <h2 class="display text-4xl md:text-6xl mb-8">Hardware <span style="color:var(--mint)">Specs</span></h2>
+ <div class="panel overflow-x-auto p-0">
+  <table class="w-full text-left text-sm min-w-[560px]">
+   <thead><tr class="display"><th class="w-1/2">Arduino Uno · DSP</th><th>ESP32 · Gateway</th></tr></thead>
+   <tbody>
+    <tr><td>Reads AD8232 ECG on analog pin A0</td><td>Receives framed serial data from the Arduino</td></tr>
+    <tr><td>Polls MAX30102 PPG at 400 Hz over I²C</td><td>Streams 100 Hz over Bluetooth SPP</td></tr>
+    <tr><td>Removes ~600 DC offset (zero-centering)</td><td>Joins Wi-Fi and POSTs to ThingSpeak every 15 s</td></tr>
+    <tr><td>Auto-resets pulse memory on finger loss</td><td>Verifies HTTP 200 and logs sync status</td></tr>
+    <tr><td>Beat detection and BPM computation</td><td>Handles reconnects and buffering</td></tr>
+   </tbody>
+  </table>
+ </div>
+ <p class="mono text-xs mt-10 text-center" style="color:var(--muted)">VITAL-PAL · Educational prototype, not a medical device.</p>
+</section>
+
+<script>
+const $=s=>document.querySelector(s);
+// ECG model: one cardiac cycle t in [0,1)
+const g=(t,c,w,a)=>a*Math.exp(-((t-c)**2)/(2*w*w));
+const cycle=t=>g(t,.18,.035,20)+g(t,.30,.008,-30)+g(t,.32,.011,240)+g(t,.345,.01,-60)+g(t,.6,.06,45);
+function fit(c){const d=devicePixelRatio||1,r=c.getBoundingClientRect();c.width=r.width*d;c.height=r.height*d;c.getContext('2d').setTransform(d,0,0,d,0,0);return [r.width,r.height]}
+
+/* ---------- Pipeline matrix canvas ---------- */
+const mc=$('#matrix'),mx=mc.getContext('2d');let W,H,mode=0,parts=[];
+const PH=['PHASE 01 · RAW NOISE · ~600 DC OFFSET','PHASE 02 · CENTERED FILTERED WAVE','PHASE 03 · CLOUD JSON DATA STREAM'];
+function initM(){[W,H]=fit(mc);parts=Array.from({length:90},()=>({x:Math.random()*W,y:Math.random()*H,v:.5+Math.random()*2}))}
+let mt=0;
+function drawM(){
+ mx.fillStyle='rgba(9,13,22,.22)';mx.fillRect(0,0,W,H);mt+=.012;
+ mx.fillStyle='rgba(16,185,129,.5)';
+ parts.forEach(p=>{p.y+=p.v;if(p.y>H){p.y=0;p.x=Math.random()*W}mx.fillRect(p.x,p.y,2,2)});
+ if(mode===2){mx.font='12px JetBrains Mono, monospace';mx.fillStyle='#00E676';
+  const bpm=70+Math.round(Math.sin(mt)*4);
+  ['{','  "channel": 2841197,','  "field1": '+bpm+',','  "field2": '+(Math.round(Math.sin(mt*3)*40)+180)+',','  "status": 200,','  "interval": "15s"','}'].forEach((l,i)=>mx.fillText(l,24,70+i*20));
+  mx.fillStyle='rgba(0,230,118,.8)';const x=(mt*160)%W;mx.beginPath();mx.arc(x,H-40,5,0,7);mx.fill();
+ } else {
+  mx.strokeStyle='#00E676';mx.lineWidth=2.2;mx.shadowColor='#00E676';mx.shadowBlur=10;mx.beginPath();
+  for(let x=0;x<W;x+=3){const t=((x/W)*2+mt*.6)%1;let v=cycle(t);
+   const base=mode===0?H*.3:H*.55;
+   if(mode===0)v+=(Math.random()-.5)*70+Math.sin(x*.05+mt*5)*15;
+   const y=base-v*(H*.0012*(mode===0?1:1.1)*1.6);x?mx.lineTo(x,y):mx.moveTo(x,y)}
+  mx.stroke();mx.shadowBlur=0;
+  if(mode===0){mx.setLineDash([4,6]);mx.strokeStyle='rgba(255,255,255,.35)';mx.beginPath();mx.moveTo(0,H*.3);mx.lineTo(W,H*.3);mx.stroke();mx.setLineDash([])}
+  mx.fillStyle='#fff';mx.font='11px JetBrains Mono, monospace';
+  mx.fillText(mode===0?'RAW  ≈ 600 + signal':'ZERO LINE (0)',24,H-24);
+  if(mode===1){mx.strokeStyle='rgba(255,255,255,.3)';mx.beginPath();mx.moveTo(0,H*.55);mx.lineTo(W,H*.55);mx.stroke()}
+ }
+ requestAnimationFrame(drawM)}
+function setStep(i){mode=i;$('#phase').textContent=PH[i];document.querySelectorAll('.step[data-i]').forEach(s=>s.classList.toggle('on',+s.dataset.i===i))}
+document.querySelectorAll('.step[data-i]').forEach(s=>{s.addEventListener('click',()=>setStep(+s.dataset.i));s.addEventListener('mouseenter',()=>setStep(+s.dataset.i))});
+
+/* ---------- Live ECG ---------- */
+const ec=$('#ecg'),ex=ec.getContext('2d');let EW,EH,buf=[],live=false,phase=0,hr=74,lastBeat=0,rr=[];
+const N=500;
+function initE(){[EW,EH]=fit(ec);buf=new Array(N).fill(0)}
+function pushSample(v){buf.push(v);if(buf.length>N)buf.shift()}
+let sim=0;
+function tick(){ // 100 Hz sim
+ if(live||cloud)return;
+ hr+=(74+Math.sin(sim/400)*5-hr)*.01;phase+=hr/60/100;if(phase>=1)phase-=1;sim++;
+ pushSample(cycle(phase)+(Math.random()-.5)*6)}
+setInterval(tick,10);
+function drawE(){
+ ex.clearRect(0,0,EW,EH);
+ const y=v=>EH-((v+150)/400)*EH;
+ ex.strokeStyle='rgba(255,255,255,.07)';ex.lineWidth=1;
+ for(let i=0;i<=8;i++){const gy=i*EH/8;ex.beginPath();ex.moveTo(0,gy);ex.lineTo(EW,gy);ex.stroke()}
+ ex.strokeStyle='rgba(16,185,129,.5)';ex.setLineDash([5,5]);ex.beginPath();ex.moveTo(0,y(0));ex.lineTo(EW,y(0));ex.stroke();ex.setLineDash([]);
+ ex.strokeStyle='#00E676';ex.lineWidth=2;ex.shadowColor='#00E676';ex.shadowBlur=8;ex.beginPath();
+ buf.forEach((v,i)=>{const x=i/N*EW;i?ex.lineTo(x,y(v)):ex.moveTo(x,y(v))});ex.stroke();ex.shadowBlur=0;
+ requestAnimationFrame(drawE)}
+setInterval(()=>{ // vitals readout
+ if(cloud)return;
+ const s=buf.slice(-300),mn=Math.min(...s),mxv=Math.max(...s),p=Math.round(mxv-mn);
+ $('#vpp').textContent=p;$('#vppBar').style.width=Math.min(100,p/3)+'%';
+ const ok=p>60;$('#leads').textContent=ok?'● LEADS CONNECTED':'○ LEADS OFF';$('#leads').style.color=ok?'var(--mint)':'#ef4444';
+ $('#lock').textContent=ok?'● LOCKED / FINGER DETECTED':'○ SEARCHING…';$('#lock').style.color=ok?'var(--mint)':'#f59e0b';
+ if(!live)$('#bpm').textContent=Math.round(hr)},500);
+
+/* Live serial / bluetooth */
+let DC=600;
+function ingest(line){const n=parseFloat(line);if(isNaN(n))return;DC+=(n-DC)*.01;const v=n-DC;pushSample(Math.max(-150,Math.min(250,v)));
+ if(v>120&&performance.now()-lastBeat>300){const now=performance.now();if(lastBeat){rr.push(now-lastBeat);if(rr.length>6)rr.shift();$('#bpm').textContent=Math.round(60000/(rr.reduce((a,b)=>a+b)/rr.length))}lastBeat=now}}
+async function goLive(){
+ try{
+  if(!('serial' in navigator))throw new Error('Web Serial unsupported');
+  const port=await navigator.serial.requestPort();await port.open({baudRate:115200});
+  live=true;$('#src').textContent='LIVE · SERIAL';setMode(true);
+  const dec=new TextDecoderStream();port.readable.pipeTo(dec.writable);const rd=dec.readable.getReader();let acc='';
+  for(;;){const {value,done}=await rd.read();if(done)break;acc+=value;const ls=acc.split('\n');acc=ls.pop();ls.forEach(ingest)}
+ }catch(e){live=false;setMode(false);addLog('Live stream unavailable ('+(e.message||'cancelled')+') — using simulation')}}
+let cloud=false,cTimer;
+function setMode(l,c){live=l;cloud=!!c;clearInterval(cTimer);
+ $('#mLive').classList.toggle('on',l);$('#mCloud').classList.toggle('on',!!c);$('#mSim').classList.toggle('on',!l&&!c);
+ if(!l&&!c)$('#src').textContent='SIMULATED';
+ $('#cfg').style.display=c?'flex':'none';
+ $('#ecgLbl').textContent=c?'ECG SIGNAL · FIELD 2 (15 s SAMPLES)':'ECG · LEAD I';
+ if(!c)$('#cbadge').textContent='CONNECTED'}
+async function pollCloud(){
+ const id=$('#chId').value.trim(),key=$('#chKey').value.trim(),b=$('#cbadge');
+ const url='https://api.thingspeak.com/channels/'+encodeURIComponent(id)+'/feeds.json?results=40'+(key?'&api_key='+encodeURIComponent(key):'');
+ try{
+  const r=await fetch(url);addLog('GET /channels/'+id+'/feeds.json → HTTP '+r.status);
+  if(!r.ok)throw new Error(r.status===400||r.status===404?'check channel ID and Read API key':'HTTP '+r.status);
+  const f=(await r.json()).feeds||[];if(!f.length)throw new Error('channel has no entries');
+  const e2=f.map(x=>parseFloat(x.field2)).filter(n=>!isNaN(n));
+  const last=f[f.length-1],bpm=parseFloat(last.field1)||0,p=e2.length?Math.round(Math.max(...e2)-Math.min(...e2)):0;
+  for(let i=0;i<N;i++){const q=i/(N-1)*(e2.length-1),a=Math.floor(q),c=Math.min(a+1,e2.length-1);buf[i]=Math.max(-150,Math.min(250,e2[a]+(e2[c]-e2[a])*(q-a)))}
+  $('#bpm').textContent=bpm>0?Math.round(bpm):'--';
+  $('#lock').textContent=bpm>0?'● LOCKED / FINGER DETECTED':'○ NO FINGER (BPM = 0)';$('#lock').style.color=bpm>0?'var(--mint)':'#f59e0b';
+  $('#vpp').textContent=p;$('#vppBar').style.width=Math.min(100,p/3)+'%';
+  $('#leads').textContent=p>60?'● LEADS CONNECTED':'○ LEADS OFF';$('#leads').style.color=p>60?'var(--mint)':'#ef4444';
+  const age=Math.round((Date.now()-new Date(last.created_at))/60000);
+  addLog('entry #'+last.entry_id+' · field1='+last.field1+' field2='+last.field2+' · '+(age<=1?'fresh':age+' min old'));
+  b.textContent=age>2?'STALE ('+age+' MIN)':'CONNECTED';b.style.background=age>2?'#f59e0b':'var(--mint)';
+ }catch(e){b.textContent='ERROR';b.style.background='#ef4444';
+  addLog('Cloud fetch failed: '+(e instanceof TypeError?'request blocked (host this file yourself, or check network)':e.message))}}
+function startCloud(){setMode(false,true);$('#src').textContent='CLOUD · THINGSPEAK';pollCloud();cTimer=setInterval(pollCloud,15000)}
+$('#mLive').onclick=goLive;$('#mSim').onclick=()=>setMode(false);$('#mCloud').onclick=startCloud;$('#chGo').onclick=pollCloud;
+$('#btBtn').onclick=async()=>{const b=$('#btBtn');
+ try{if(!navigator.bluetooth)throw 0;await navigator.bluetooth.requestDevice({acceptAllDevices:true});b.textContent='Bluetooth Paired ✓';addLog('BT device paired · SPP 100 Hz')}
+ catch(e){b.textContent='Simulated Link ✓';addLog('Bluetooth unavailable here — simulation active')}};
+
+/* Cloud log */
+function addLog(m){const d=document.createElement('div');d.textContent='['+new Date().toLocaleTimeString()+'] '+m;$('#log').prepend(d)}
+function upload(){if(cloud)return;addLog('(simulated) POST api.thingspeak.com/update → HTTP 200 · field1='+$('#bpm').textContent+' field2='+$('#vpp').textContent)}
+setTimeout(upload,1200);setInterval(upload,15000);
+
+function boot(){initM();initE()}
+addEventListener('resize',boot);boot();drawM();drawE();
+</script>
+</body>
+</html>
