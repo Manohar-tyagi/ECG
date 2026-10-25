@@ -99,8 +99,8 @@ td,th{padding:.9rem 1rem;vertical-align:top;border-top:1px solid rgba(128,128,12
    <div id="phase" class="mono absolute left-5 top-4 text-xs" style="color:var(--neon)">PHASE 01 · REAL-TIME SENSING</div>
   </div>
   <div id="steps">
-   <div class="step on" data-i="0"><div class="flex gap-4 items-center"><span class="num display">01</span><div><h3 class="display text-2xl">Acquire</h3><p class="body mono text-sm mt-2">MAX30102 PPG sampled at 400 Hz + AD8232 ECG read via Analog Pin A0. Raw data rides on a ~600 DC offset with noise.</p></div></div></div>
-   <div class="step" data-i="1"><div class="flex gap-4 items-center"><span class="num display">02</span><div><h3 class="display text-2xl">Filter</h3><p class="body mono text-sm mt-2">Arduino DSP zero-centers the signal by removing the ~600 DC offset, with auto-reset pulse memory when the finger lifts.</p></div></div></div>
+   <div class="step on" data-i="0"><div class="flex gap-4 items-center"><span class="num display">01</span><div><h3 class="display text-2xl">Acquire</h3><p class="body mono text-sm mt-2">MAX30102 PPG sampled over I2C + AD8232 ECG read via Analog Pin A0. Raw telemetry is framed into JSON packets.</p></div></div></div>
+   <div class="step" data-i="1"><div class="flex gap-4 items-center"><span class="num display">02</span><div><h3 class="display text-2xl">Filter</h3><p class="body mono text-sm mt-2">Arduino DSP zero-centers the signal baseline, with auto-reset pulse memory when the finger lifts.</p></div></div></div>
    <div class="step" data-i="2"><div class="flex gap-4 items-center"><span class="num display">03</span><div><h3 class="display text-2xl">Telemetry</h3><p class="body mono text-sm mt-2">Dual output: 100 Hz real-time Web Serial / SPP stream + Automatic 1 Hz batched Firebase Database recording.</p></div></div></div>
    <div class="step" style="cursor:default;padding:0"></div>
   </div>
@@ -160,9 +160,9 @@ td,th{padding:.9rem 1rem;vertical-align:top;border-top:1px solid rgba(128,128,12
   <table class="w-full text-left text-sm min-w-[560px]">
    <thead><tr class="display"><th class="w-1/2">Arduino Uno · DSP</th><th>ESP32 · Gateway</th></tr></thead>
    <tbody>
-    <tr><td>Reads AD8232 ECG on analog pin A0</td><td>Receives framed serial data from the Arduino</td></tr>
-    <tr><td>Polls MAX30102 PPG at 400 Hz over I²C</td><td>Streams 100 Hz raw data over Web Serial / SPP</td></tr>
-    <tr><td>Removes ~600 DC offset (zero-centering)</td><td>Batches 100 Hz telemetry into 1s Firebase packets</td></tr>
+    <tr><td>Reads AD8232 ECG on analog pin A0</td><td>Receives framed serial data from Arduino (38400 baud)</td></tr>
+    <tr><td>Polls MAX30102 PPG at 400 Hz over I2C</td><td>Streams 100 Hz raw data over Web Serial / SPP</td></tr>
+    <tr><td>Removes DC offset (zero-centering)</td><td>Batches 100 Hz telemetry into 1s Firebase packets</td></tr>
     <tr><td>Auto-resets pulse memory on finger loss</td><td>Permanent, automatic time-series database persistence</td></tr>
     <tr><td>Beat detection and BPM computation</td><td>Handles cloud sync, reconnects, and logging</td></tr>
    </tbody>
@@ -175,7 +175,7 @@ td,th{padding:.9rem 1rem;vertical-align:top;border-top:1px solid rgba(128,128,12
 const $=s=>document.querySelector(s);
 
 // ==========================================
-// FIREBASE LOGGING ENGINE
+// FIREBASE DATABASE ENGINE
 // ==========================================
 const firebaseConfig = {
   databaseURL: "https://vital-pal-db-default-rtdb.firebaseio.com"
@@ -192,7 +192,7 @@ const dbCounter = $('#dbCounter');
 
 dbStatus.textContent = `Logging Active -> /sessions/${currentSessionId}`;
 
-// 1-Second Batch Flusher (100 Hz -> 1s Packet)
+// 1-Second Batch Flusher (100 Hz Telemetry -> 1s Firebase Packet)
 setInterval(() => {
   if (dbBuffer.length > 0) {
     const batchToSend = [...dbBuffer];
@@ -264,31 +264,42 @@ setInterval(()=>{
  $('#lock').style.color=ok?'var(--mint)':'#f59e0b';
 },500);
 
-/* ---------- Serial Ingestion ---------- */
+/* ---------- Serial Ingestion (Handles JSON & Raw Streams) ---------- */
 let DC=600;
 function ingest(line){
-  const n=parseFloat(line);if(isNaN(n))return;
-  DC+=(n-DC)*.01;
-  const filteredVal=n-DC;
-  const bpmVal = parseInt($('#bpm').textContent) || 0;
+  line = line.trim();
+  if (!line) return;
 
+  let filteredVal = 0;
+  let bpmVal = 0;
+
+  // 1. Parse JSON format: {"bpm":72,"ecg":15}
+  try {
+    const data = JSON.parse(line);
+    filteredVal = data.ecg !== undefined ? data.ecg : 0;
+    bpmVal = data.bpm !== undefined ? data.bpm : 0;
+  } catch (e) {
+    // 2. Fallback for raw numerical lines
+    const n = parseFloat(line);
+    if (isNaN(n)) return;
+    DC += (n - DC) * 0.01;
+    filteredVal = n - DC;
+  }
+
+  // Update Heart Rate readout
+  if (bpmVal > 0) {
+    $('#bpm').textContent = bpmVal;
+  }
+
+  // Log to Firebase Buffer
   dbBuffer.push({
     ts: Date.now(),
-    raw: Math.round(n),
     ecg: Math.round(filteredVal),
     bpm: bpmVal
   });
 
-  pushSample(Math.max(-150,Math.min(250,filteredVal)));
-  if(filteredVal>120&&performance.now()-lastBeat>300){
-    const now=performance.now();
-    if(lastBeat){
-      rr.push(now-lastBeat);
-      if(rr.length>6)rr.shift();
-      $('#bpm').textContent=Math.round(60000/(rr.reduce((a,b)=>a+b)/rr.length));
-    }
-    lastBeat=now;
-  }
+  // Render on Canvas Plotter
+  pushSample(Math.max(-150, Math.min(250, filteredVal)));
 }
 
 async function goLive(){
