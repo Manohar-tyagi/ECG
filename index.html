@@ -67,7 +67,7 @@ td,th{padding:.9rem 1rem;vertical-align:top;border-top:1px solid rgba(128,128,12
     <path d="M770 20 l0 22 M759 31 l22 0 M30 170 l0 16 M22 178 l16 0" stroke-width="4"/>
    </svg>
   </div>
-  <p class="mx-auto mt-8 max-w-xl text-lg md:text-xl" style="color:var(--muted)">Dual-mode IoT telemetry engine for real-time PPG pulse tracking &amp; zero-centered ECG acquisition.</p>
+  <p class="mx-auto mt-8 max-w-xl text-lg md:text-xl" style="color:var(--muted)">Dual-mode IoT telemetry engine for real-time PPG pulse tracking, SpO2, ECG &amp; EMG acquisition.</p>
  </div>
 
  <div id="hardware" class="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mt-14">
@@ -99,9 +99,9 @@ td,th{padding:.9rem 1rem;vertical-align:top;border-top:1px solid rgba(128,128,12
    <div id="phase" class="mono absolute left-5 top-4 text-xs" style="color:var(--neon)">PHASE 01 · REAL-TIME SENSING</div>
   </div>
   <div id="steps">
-   <div class="step on" data-i="0"><div class="flex gap-4 items-center"><span class="num display">01</span><div><h3 class="display text-2xl">Acquire</h3><p class="body mono text-sm mt-2">MAX30102 PPG sampled over I2C + AD8232 ECG read via Analog Pin A0. Raw telemetry is framed into JSON packets.</p></div></div></div>
-   <div class="step" data-i="1"><div class="flex gap-4 items-center"><span class="num display">02</span><div><h3 class="display text-2xl">Filter</h3><p class="body mono text-sm mt-2">Arduino DSP zero-centers the signal baseline, with auto-reset pulse memory when the finger lifts.</p></div></div></div>
-   <div class="step" data-i="2"><div class="flex gap-4 items-center"><span class="num display">03</span><div><h3 class="display text-2xl">Telemetry</h3><p class="body mono text-sm mt-2">Dual output: 100 Hz real-time Web Serial / SPP stream + Automatic 1 Hz batched Firebase Database recording.</p></div></div></div>
+   <div class="step on" data-i="0"><div class="flex gap-4 items-center"><span class="num display">01</span><div><h3 class="display text-2xl">Acquire</h3><p class="body mono text-sm mt-2">MAX30102 PPG sampled over I2C + AD8232 ECG on Pin A0 + BioAmp EXG on Pin A1. Telemetry is framed into JSON packets.</p></div></div></div>
+   <div class="step" data-i="1"><div class="flex gap-4 items-center"><span class="num display">02</span><div><h3 class="display text-2xl">Filter</h3><p class="body mono text-sm mt-2">Arduino DSP applies high-pass baseline tracking, low-pass EMA smoothing, and 10-sample moving average windowing.</p></div></div></div>
+   <div class="step" data-i="2"><div class="flex gap-4 items-center"><span class="num display">03</span><div><h3 class="display text-2xl">Telemetry</h3><p class="body mono text-sm mt-2">100 Hz USB/BLE stream + 15s ThingSpeak Cloud aggregation + 1s Firebase database persistence.</p></div></div></div>
    <div class="step" style="cursor:default;padding:0"></div>
   </div>
  </div>
@@ -112,7 +112,7 @@ td,th{padding:.9rem 1rem;vertical-align:top;border-top:1px solid rgba(128,128,12
  <div class="flex flex-wrap items-end justify-between gap-4 mb-4">
   <h2 class="display text-4xl md:text-6xl">Live <span style="color:var(--mint)">Vitals</span></h2>
   <div class="tog flex flex-wrap rounded-2xl p-1" style="background:var(--card)">
-   <button id="mLive" class="on">Live Serial Stream (COM / USB)</button><button id="mCloud">ThingSpeak Cloud</button>
+   <button id="mLive" class="on">Live Serial Stream (COM / USB)</button><button id="mCloud">ThingSpeak Cloud (1s Poll)</button>
   </div>
  </div>
 
@@ -131,21 +131,58 @@ td,th{padding:.9rem 1rem;vertical-align:top;border-top:1px solid rgba(128,128,12
   <button id="chGo" class="cta">Fetch now</button>
  </div>
 
+ <!-- 4-PARAMETER METRIC CARDS GRID -->
+ <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
+  <!-- Field 1: Heart Rate -->
+  <div class="panel border-l-4" style="border-color:#ef4444">
+   <div class="mono text-xs" style="color:var(--muted)">HEART RATE (FIELD 1)</div>
+   <div class="flex items-baseline gap-2 mt-1"><span id="bpm" class="display text-4xl md:text-5xl" style="color:#f87171">--</span><span class="mono text-xs text-slate-400">BPM</span><span class="beat ml-auto text-2xl" style="color:var(--mint)">♥</span></div>
+   <div id="lock" class="mono text-[10px] mt-2" style="color:var(--muted)">○ SEARCHING...</div>
+  </div>
+
+  <!-- Field 2: SpO2 -->
+  <div class="panel border-l-4" style="border-color:#06b6d4">
+   <div class="mono text-xs" style="color:var(--muted)">BLOOD OXYGEN (FIELD 2)</div>
+   <div class="flex items-baseline gap-2 mt-1"><span id="spo2" class="display text-4xl md:text-5xl" style="color:#22d3ee">--%</span></div>
+   <div class="mono text-[10px] mt-2" style="color:var(--mint)">MAX30102 PPG</div>
+  </div>
+
+  <!-- Field 3: ECG Level -->
+  <div class="panel border-l-4" style="border-color:#10b981">
+   <div class="mono text-xs" style="color:var(--muted)">ECG SIGNAL (FIELD 3)</div>
+   <div class="flex items-baseline gap-2 mt-1"><span id="ecgVal" class="display text-4xl md:text-5xl" style="color:#34d399">0</span><span class="mono text-xs text-slate-400">units</span></div>
+   <div id="leads" class="mono text-[10px] mt-2" style="color:#ef4444">○ NO SIGNAL</div>
+  </div>
+
+  <!-- Field 4: EMG / EXG Level -->
+  <div class="panel border-l-4" style="border-color:#a855f7">
+   <div class="mono text-xs" style="color:var(--muted)">EMG / EXG (FIELD 4)</div>
+   <div class="flex items-baseline gap-2 mt-1"><span id="emgVal" class="display text-4xl md:text-5xl" style="color:#c084fc">0</span><span class="mono text-xs text-slate-400">units</span></div>
+   <div class="mono text-[10px] mt-2" style="color:var(--mint)">BIOAMP EXG (PIN A1)</div>
+  </div>
+ </div>
+
+ <!-- OSCILLOSCOPE & SIGNAL INTEGRITY -->
  <div class="grid lg:grid-cols-3 gap-5">
   <div class="panel lg:col-span-2" style="background:var(--slate);color:#fff">
-   <div class="mono text-xs flex justify-between mb-2"><span id="ecgLbl" style="color:var(--neon)">ECG · LEAD I</span><span id="src">AWAITING SERIAL STREAM</span></div>
+   <div class="mono text-xs flex justify-between mb-2"><span id="ecgLbl" style="color:var(--neon)">ECG · LEAD I WAVEFORM</span><span id="src">AWAITING SERIAL STREAM</span></div>
    <canvas id="ecg" class="w-full" style="height:260px"></canvas>
    <div class="mono text-[10px] opacity-60 mt-1">AMPLITUDE RANGE −150 … +250 · ZERO-CENTERED</div>
   </div>
+
   <div class="grid gap-5">
-   <div class="panel"><div class="mono text-xs" style="color:var(--muted)">HEART RATE</div>
-    <div class="flex items-baseline gap-2"><span id="bpm" class="display text-7xl">--</span><span class="mono">BPM</span><span class="beat ml-auto text-3xl" style="color:var(--mint)">♥</span></div>
-    <div id="lock" class="mono text-xs mt-1" style="color:var(--muted)">○ SEARCHING SENSOR...</div></div>
-   <div class="panel"><div class="mono text-xs" style="color:var(--muted)">SIGNAL INTEGRITY · V<sub>p-p</sub></div>
-    <div class="flex items-baseline gap-2"><span id="vpp" class="display text-4xl">0</span><span class="mono text-sm">units</span></div>
-    <div class="h-2 rounded-full mt-2" style="background:rgba(128,128,128,.25)"><div id="vppBar" class="h-2 rounded-full" style="background:var(--mint);width:0%;transition:.3s"></div></div>
-    <div id="leads" class="mono text-xs mt-2" style="color:#ef4444">○ NO SIGNAL</div></div>
+   <div class="panel">
+    <div class="mono text-xs" style="color:var(--muted)">SIGNAL INTEGRITY · V<sub>p-p</sub></div>
+    <div class="flex items-baseline gap-2 mt-2"><span id="vpp" class="display text-4xl">0</span><span class="mono text-sm">units</span></div>
+    <div class="h-2 rounded-full mt-3" style="background:rgba(128,128,128,.25)"><div id="vppBar" class="h-2 rounded-full" style="background:var(--mint);width:0%;transition:.3s"></div></div>
+   </div>
+   <div class="panel flex flex-col justify-center">
+    <div class="mono text-xs" style="color:var(--muted)">CLOUD SYNC RATE</div>
+    <div class="mono text-lg font-bold mt-1" style="color:var(--neon)">1,000 ms Polling</div>
+    <div class="mono text-[10px] text-slate-400 mt-1">Fastest browser refresh loop active</div>
+   </div>
   </div>
+
   <div class="panel lg:col-span-3">
    <div class="flex items-center justify-between mb-2"><div class="mono text-xs" style="color:var(--muted)">DATABASE SYNC LOGS</div><span id="cbadge" class="mono text-xs px-3 py-1 rounded-full" style="background:var(--mint);color:#fff">PERMANENT LOGGING</span></div>
    <div id="log" class="mono text-xs h-24 overflow-y-auto space-y-1"></div>
@@ -161,10 +198,10 @@ td,th{padding:.9rem 1rem;vertical-align:top;border-top:1px solid rgba(128,128,12
    <thead><tr class="display"><th class="w-1/2">Arduino Uno · DSP</th><th>ESP32 · Gateway</th></tr></thead>
    <tbody>
     <tr><td>Reads AD8232 ECG on analog pin A0</td><td>Receives framed serial data from Arduino (38400 baud)</td></tr>
-    <tr><td>Polls MAX30102 PPG at 400 Hz over I2C</td><td>Streams 100 Hz raw data over Web Serial / SPP</td></tr>
-    <tr><td>Removes DC offset (zero-centering)</td><td>Batches 100 Hz telemetry into 1s Firebase packets</td></tr>
-    <tr><td>Auto-resets pulse memory on finger loss</td><td>Permanent, automatic time-series database persistence</td></tr>
-    <tr><td>Beat detection and BPM computation</td><td>Handles cloud sync, reconnects, and logging</td></tr>
+    <tr><td>Polls MAX30102 PPG over I2C</td><td>Streams 100 Hz raw data over Web Serial / SPP</td></tr>
+    <tr><td>Removes DC offset &amp; filters noise</td><td>Averages 15s window for ThingSpeak Fields 1–4</td></tr>
+    <tr><td>Auto-resets pulse memory on finger loss</td><td>Batches 100 Hz telemetry into 1s Firebase packets</td></tr>
+    <tr><td>BioAmp EXG Pill read on Pin A1</td><td>Handles cloud sync, reconnects, and logging</td></tr>
    </tbody>
   </table>
  </div>
@@ -175,7 +212,7 @@ td,th{padding:.9rem 1rem;vertical-align:top;border-top:1px solid rgba(128,128,12
 const $=s=>document.querySelector(s);
 
 // ==========================================
-// FIREBASE DATABASE ENGINE
+// 1. FIREBASE DATABASE ENGINE
 // ==========================================
 const firebaseConfig = {
   databaseURL: "https://vital-pal-db-default-rtdb.firebaseio.com"
@@ -192,7 +229,7 @@ const dbCounter = $('#dbCounter');
 
 dbStatus.textContent = `Logging Active -> /sessions/${currentSessionId}`;
 
-// 1-Second Batch Flusher (100 Hz Telemetry -> 1s Firebase Packet)
+// 1-Second Batch Flusher to Firebase Realtime DB
 setInterval(() => {
   if (dbBuffer.length > 0) {
     const batchToSend = [...dbBuffer];
@@ -213,7 +250,7 @@ setInterval(() => {
 }, 1000);
 
 // ==========================================
-// CANVAS & WAVEFORM RENDERERS
+// 2. CANVAS & WAVEFORM RENDERERS
 // ==========================================
 function fit(c){const d=devicePixelRatio||1,r=c.getBoundingClientRect();c.width=r.width*d;c.height=r.height*d;c.getContext('2d').setTransform(d,0,0,d,0,0);return [r.width,r.height]}
 
@@ -236,8 +273,8 @@ function drawM(){
 function setStep(i){mode=i;$('#phase').textContent=PH[i];document.querySelectorAll('.step[data-i]').forEach(s=>s.classList.toggle('on',+s.dataset.i===i))}
 document.querySelectorAll('.step[data-i]').forEach(s=>{s.addEventListener('click',()=>setStep(+s.dataset.i));s.addEventListener('mouseenter',()=>setStep(+s.dataset.i))});
 
-/* ---------- Live ECG Renderer ---------- */
-const ec=$('#ecg'),ex=ec.getContext('2d');let EW,EH,buf=[],live=true,cloud=false,lastBeat=0,rr=[];
+/* ---------- Live ECG Oscilloscope Renderer ---------- */
+const ec=$('#ecg'),ex=ec.getContext('2d');let EW,EH,buf=[],live=true,cloud=false;
 const N=500;
 function initE(){[EW,EH]=fit(ec);buf=new Array(N).fill(0)}
 function pushSample(v){buf.push(v);if(buf.length>N)buf.shift()}
@@ -254,52 +291,58 @@ function drawE(){
 }
 
 setInterval(()=>{
- if(cloud)return;
  const s=buf.slice(-300),mn=Math.min(...s),mxv=Math.max(...s),p=Math.round(mxv-mn);
  $('#vpp').textContent=p;$('#vppBar').style.width=Math.min(100,p/3)+'%';
  const ok=p>60;
- $('#leads').textContent=ok?'● LEADS CONNECTED':'○ LEADS DISCONNECTED';
+ $('#leads').textContent=ok?'● LEADS CONNECTED':'○ NO SIGNAL';
  $('#leads').style.color=ok?'var(--mint)':'#ef4444';
- $('#lock').textContent=ok?'● LOCKED / SENSING':'○ SEARCHING PULSE...';
- $('#lock').style.color=ok?'var(--mint)':'#f59e0b';
 },500);
 
-/* ---------- Serial Ingestion (Handles JSON & Raw Streams) ---------- */
+/* ==========================================
+   3. TELEMETRY INGESTION ENGINE
+   ========================================== */
 let DC=600;
+
+// Parses 4-Parameter JSON: {"bpm":X,"spo2":Y,"ecg":Z,"exg":W}
 function ingest(line){
   line = line.trim();
   if (!line) return;
 
-  let filteredVal = 0;
-  let bpmVal = 0;
+  let bpmVal = 0, spo2Val = 0, ecgVal = 0, emgVal = 0;
 
-  // 1. Parse JSON format: {"bpm":72,"ecg":15}
   try {
     const data = JSON.parse(line);
-    filteredVal = data.ecg !== undefined ? data.ecg : 0;
-    bpmVal = data.bpm !== undefined ? data.bpm : 0;
+    bpmVal  = data.bpm  || 0;
+    spo2Val = data.spo2 || 0;
+    ecgVal  = data.ecg  !== undefined ? data.ecg : 0;
+    emgVal  = data.exg  !== undefined ? data.exg : (data.emg !== undefined ? data.emg : 0);
   } catch (e) {
-    // 2. Fallback for raw numerical lines
     const n = parseFloat(line);
     if (isNaN(n)) return;
     DC += (n - DC) * 0.01;
-    filteredVal = n - DC;
+    ecgVal = n - DC;
   }
 
-  // Update Heart Rate readout
-  if (bpmVal > 0) {
-    $('#bpm').textContent = bpmVal;
-  }
+  // Update UI Cards
+  if (bpmVal > 0)  $('#bpm').textContent  = Math.round(bpmVal);
+  if (spo2Val > 0) $('#spo2').textContent = `${Math.round(spo2Val)}%`;
+  $('#ecgVal').textContent = Math.round(ecgVal);
+  $('#emgVal').textContent = Math.round(emgVal);
 
-  // Log to Firebase Buffer
+  $('#lock').textContent = bpmVal > 0 ? '● LOCKED / FINGER DETECTED' : '○ NO FINGER';
+  $('#lock').style.color = bpmVal > 0 ? 'var(--mint)' : '#f59e0b';
+
+  // Push to Firebase buffer
   dbBuffer.push({
     ts: Date.now(),
-    ecg: Math.round(filteredVal),
-    bpm: bpmVal
+    bpm: bpmVal,
+    spo2: spo2Val,
+    ecg: Math.round(ecgVal),
+    emg: Math.round(emgVal)
   });
 
   // Render on Canvas Plotter
-  pushSample(Math.max(-150, Math.min(250, filteredVal)));
+  pushSample(Math.max(-150, Math.min(250, ecgVal)));
 }
 
 async function goLive(){
@@ -315,32 +358,64 @@ async function goLive(){
 let cTimer;
 function setMode(l,c){live=l;cloud=!!c;clearInterval(cTimer);
  $('#mLive').classList.toggle('on',l);$('#mCloud').classList.toggle('on',!!c);
- if(!l&&!c)$('#src').textContent='AWAITING SERIAL STREAM';
+ if(!l&&!c)$('#src').textContent='AWAITING TELEMETRY STREAM';
  $('#cfg').style.display=c?'flex':'none';
- $('#ecgLbl').textContent=c?'ECG SIGNAL · FIELD 2 (15 s SAMPLES)':'ECG · LEAD I';
+ $('#ecgLbl').textContent=c?'ECG SIGNAL · THINKSPEAK CLOUD STREAM':'ECG · LEAD I WAVEFORM';
  if(!c)$('#cbadge').textContent='PERMANENT LOGGING'}
 
+// ==========================================
+// 4. FAST THINKSPEAK CLOUD POLLING (1s Interval)
+// ==========================================
 async function pollCloud(){
  const id=$('#chId').value.trim(),key=$('#chKey').value.trim(),b=$('#cbadge');
- const url='https://api.thingspeak.com/channels/'+encodeURIComponent(id)+'/feeds.json?results=40'+(key?'&api_key='+encodeURIComponent(key):'');
+ // Use feeds/last.json for sub-second, lightweight endpoint fetching
+ const url=`https://api.thingspeak.com/channels/${encodeURIComponent(id)}/feeds/last.json?${key?'api_key='+encodeURIComponent(key):''}`;
+ 
  try{
-  const r=await fetch(url);addLog('GET /channels/'+id+'/feeds.json → HTTP '+r.status);
+  const r=await fetch(url);
   if(!r.ok)throw new Error(r.status===400||r.status===404?'check channel ID and Read API key':'HTTP '+r.status);
-  const f=(await r.json()).feeds||[];if(!f.length)throw new Error('channel has no entries');
-  const e2=f.map(x=>parseFloat(x.field2)).filter(n=>!isNaN(n));
-  const last=f[f.length-1],bpm=parseFloat(last.field1)||0,p=e2.length?Math.round(Math.max(...e2)-Math.min(...e2)):0;
-  for(let i=0;i<N;i++){const q=i/(N-1)*(e2.length-1),a=Math.floor(q),c=Math.min(a+1,e2.length-1);buf[i]=Math.max(-150,Math.min(250,e2[a]+(e2[c]-e2[a])*(q-a)))}
-  $('#bpm').textContent=bpm>0?Math.round(bpm):'--';
-  $('#lock').textContent=bpm>0?'● LOCKED / FINGER DETECTED':'○ NO FINGER (BPM = 0)';$('#lock').style.color=bpm>0?'var(--mint)':'#f59e0b';
-  $('#vpp').textContent=p;$('#vppBar').style.width=Math.min(100,p/3)+'%';
-  $('#leads').textContent=p>60?'● LEADS CONNECTED':'○ LEADS OFF';$('#leads').style.color=p>60?'var(--mint)':'#ef4444';
-  const age=Math.round((Date.now()-new Date(last.created_at))/60000);
-  addLog('entry #'+last.entry_id+' · field1='+last.field1+' field2='+last.field2+' · '+(age<=1?'fresh':age+' min old'));
-  b.textContent=age>2?'STALE ('+age+' MIN)':'CONNECTED';b.style.background=age>2?'#f59e0b':'var(--mint)';
- }catch(e){b.textContent='ERROR';b.style.background='#ef4444';
-  addLog('Cloud fetch failed: '+(e instanceof TypeError?'request blocked':e.message))}}
+  const data = await r.json();
 
-function startCloud(){setMode(false,true);$('#src').textContent='CLOUD · THINGSPEAK';pollCloud();cTimer=setInterval(pollCloud,15000)}
+  // Parse all 4 ThingSpeak Fields
+  const bpm  = data.field1 ? parseFloat(data.field1) : 0;
+  const spo2 = data.field2 ? parseFloat(data.field2) : 0;
+  const ecg  = data.field3 ? parseFloat(data.field3) : 0;
+  const emg  = data.field4 ? parseFloat(data.field4) : 0;
+
+  // Update DOM Metric Cards
+  $('#bpm').textContent  = bpm > 0 ? Math.round(bpm) : '--';
+  $('#spo2').textContent = spo2 > 0 ? `${Math.round(spo2)}%` : '--%';
+  $('#ecgVal').textContent = Math.round(ecg);
+  $('#emgVal').textContent = Math.round(emg);
+
+  // Update Lock Indicator
+  $('#lock').textContent = bpm > 0 ? '● LOCKED / FINGER DETECTED' : '○ NO FINGER (BPM = 0)';
+  $('#lock').style.color = bpm > 0 ? 'var(--mint)' : '#f59e0b';
+
+  // Push ECG level to Canvas Oscilloscope
+  pushSample(Math.max(-150, Math.min(250, ecg)));
+
+  // Calculate packet latency/age
+  const ageSec = data.created_at ? Math.round((Date.now() - new Date(data.created_at).getTime()) / 1000) : 0;
+  b.textContent = ageSec > 30 ? `STALE (${ageSec}s)` : `LIVE (1s POLL)`;
+  b.style.background = ageSec > 30 ? '#f59e0b' : 'var(--mint)';
+
+  // Log sample to Firebase Buffer
+  dbBuffer.push({ ts: Date.now(), bpm, spo2, ecg, emg });
+
+ }catch(e){
+  b.textContent='ERROR';b.style.background='#ef4444';
+  addLog('Cloud fetch error: '+(e instanceof TypeError?'request blocked':e.message));
+ }
+}
+
+function startCloud(){
+  setMode(false,true);
+  $('#src').textContent='CLOUD · THINGSPEAK (1s POLL)';
+  pollCloud();
+  clearInterval(cTimer);
+  cTimer=setInterval(pollCloud,1000); // Polls ThingSpeak every 1 second
+}
 
 $('#mLive').onclick=goLive;$('#mCloud').onclick=startCloud;$('#chGo').onclick=pollCloud;
 $('#btBtn').onclick=async()=>{const b=$('#btBtn');
