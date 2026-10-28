@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>VITAL-PAL — Telemetry Monitor & Serial Plotter</title>
+<title>VITAL-PAL — Clinical Telemetry Monitor</title>
 <script src="https://cdn.tailwindcss.com/3.4.17"></script>
 <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
 
@@ -14,149 +14,97 @@
 <style>
 :root{--bg:#0b0f19;--ink:#f1f5f0;--mint:#10B981;--neon:#00E676;--slate:#020617;--card:#131b2e;--muted:#94a3b8;
 box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
-html{scroll-behavior:smooth;scroll-padding-top:90px}
 body{background:var(--bg);color:var(--ink);font-family:'Space Grotesk',system-ui,sans-serif;overflow-x:hidden}
 .display{font-family:'Archivo Black','Arial Black',sans-serif;text-transform:uppercase;letter-spacing:-.02em}
 .mono{font-family:'JetBrains Mono',ui-monospace,monospace}
-.pill{background:#1e293b;color:#fff;border-radius:999px;padding:.5rem 1rem;font-size:.85rem;transition:.2s}
-.pill:hover{background:var(--mint)}
-.cta{background:var(--neon);color:#052e1a;font-weight:700;border-radius:999px;padding:.55rem 1.1rem;font-size:.85rem;box-shadow:0 0 0 0 rgba(0,230,118,.6);animation:glow 2.4s infinite;transition:.2s}
-.cta:hover{box-shadow:0 0 28px 6px rgba(0,230,118,.55);transform:translateY(-1px)}
-@keyframes glow{0%{box-shadow:0 0 0 0 rgba(0,230,118,.55)}70%{box-shadow:0 0 0 14px rgba(0,230,118,0)}100%{box-shadow:0 0 0 0 rgba(0,230,118,0)}}
-.panel{background:var(--card);border-radius:1.5rem;padding:1.25rem;box-shadow:0 10px 30px -14px rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.05)}
+.cta{background:var(--neon);color:#052e1a;font-weight:700;border-radius:999px;padding:.5rem 1rem;font-size:.8rem;transition:.2s}
+.cta:hover{box-shadow:0 0 20px rgba(0,230,118,.5);transform:translateY(-1px)}
+.panel{background:var(--card);border-radius:1rem;padding:1rem;box-shadow:0 8px 24px -10px rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.05)}
 .beat{animation:beat 1s infinite}
 @keyframes beat{50%{transform:scale(1.15)}}
 </style>
 </head>
-<body>
+<body class="p-4 max-w-6xl mx-auto space-y-4 pt-16">
 
-<!-- TOP NAVIGATION BAR -->
-<header class="fixed left-0 right-0 z-50 flex justify-center px-3" style="top:calc(env(safe-area-inset-top,0px) + 12px)">
- <div class="w-full max-w-5xl flex items-center justify-between gap-2 rounded-full px-3 py-2 backdrop-blur" style="background:rgba(19, 27, 46, 0.85);box-shadow:0 8px 30px -10px rgba(0,0,0,.5); border:1px solid rgba(255,255,255,0.1)">
-  <a href="#top" class="flex items-center gap-2 display text-lg pl-2"><span class="w-3 h-3 rounded-full" style="background:var(--neon);box-shadow:0 0 10px var(--neon)"></span>VITAL-PAL TELEMETRY</a>
-  <nav class="hidden md:flex gap-2">
-   <a class="pill" href="#top">Overview</a><a class="pill" href="#diagnostics">Diagnostics</a><a class="pill" href="#live">Live Stream</a>
-  </nav>
+<!-- HEADER BAR -->
+<header class="fixed top-0 left-0 right-0 z-50 flex justify-center px-3 py-2">
+ <div class="w-full max-w-6xl flex items-center justify-between gap-2 rounded-full px-4 py-2 backdrop-blur bg-slate-900/80 border border-white/10">
+  <div class="flex items-center gap-2 display text-base"><span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>VITAL-PAL</div>
   <button id="btBtn" class="cta">Connect Serial / BT</button>
  </div>
 </header>
 
-<!-- HERO SECTION -->
-<section id="top" class="relative px-4 pt-28 pb-4 max-w-6xl mx-auto">
- <div class="relative text-center">
-  <h1 class="display text-[12vw] md:text-[6.5rem] leading-none text-emerald-400">SERIAL PLOTTER ENGINE</h1>
-  <p class="mx-auto mt-2 max-w-2xl text-sm md:text-base text-slate-400">High-resolution single-trace biopotential plotter with real-time X/Y numerical axis calibration.</p>
+<!-- CONNECTION CONTROLS -->
+<div class="panel flex flex-wrap items-center justify-between gap-3 border-emerald-500/30">
+ <div class="flex items-center gap-2">
+  <span class="mono text-xs text-slate-400">Gateway:</span>
+  <input id="wsIp" type="text" value="vitalpal.local" class="px-3 py-1 text-xs mono w-36 text-slate-100 bg-slate-900 border border-slate-700 rounded-lg">
+  <button id="wsConnectBtn" class="cta">Connect WebSocket</button>
  </div>
-</section>
+ <div id="wsStatus" class="mono text-xs px-3 py-1 rounded-full bg-slate-800 text-slate-400 font-bold">Disconnected</div>
+</div>
 
-<!-- MAIN MONITORING DASHBOARD -->
-<section id="live" class="px-4 py-4 max-w-6xl mx-auto">
-
- <!-- 1. WEBSOCKET CONTROLS -->
- <div class="panel mb-4 flex flex-wrap items-center justify-between gap-3 border-emerald-500/40">
-  <div class="flex flex-wrap items-center gap-2 w-full lg:w-auto">
-   <span class="mono text-xs font-bold text-slate-400">ESP32 Address:</span>
-   <input id="wsIp" type="text" value="vitalpal.local" class="panel px-3 py-1.5 text-xs mono w-40 text-slate-100 bg-slate-900 border border-slate-700">
-   <button id="wsConnectBtn" class="cta py-1.5 px-4 text-xs">Connect WebSocket (100 Hz)</button>
-  </div>
-  
-  <div class="flex flex-wrap items-center gap-3">
-   <div id="wsStatus" class="mono text-xs px-3 py-1 rounded-full bg-slate-800 text-slate-400 font-bold">
-    Disconnected
-   </div>
-  </div>
+<!-- METRIC CARDS -->
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+ <div class="panel border-l-4 border-red-500">
+  <div class="mono text-[10px] text-slate-400">HEART RATE</div>
+  <div class="flex items-baseline gap-2 mt-1"><span id="bpm" class="display text-3xl text-red-400">--</span><span class="mono text-xs text-slate-400">BPM</span><span class="beat ml-auto text-xl text-emerald-400">♥</span></div>
+  <div id="lock" class="mono text-[10px] mt-1 text-amber-400">○ SEARCHING</div>
  </div>
 
- <!-- 4-PARAMETER METRIC CARDS GRID -->
- <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
-  <div class="panel border-l-4" style="border-color:#ef4444">
-   <div class="mono text-xs text-slate-400">HEART RATE (HR)</div>
-   <div class="flex items-baseline gap-2 mt-1"><span id="bpm" class="display text-4xl md:text-5xl" style="color:#f87171">--</span><span class="mono text-xs text-slate-400">BPM</span><span class="beat ml-auto text-2xl text-emerald-400">♥</span></div>
-   <div id="lock" class="mono text-[10px] mt-2 text-amber-400">○ SEARCHING PULSE</div>
-  </div>
-
-  <div class="panel border-l-4" style="border-color:#06b6d4">
-   <div class="mono text-xs text-slate-400">BLOOD OXYGEN (SpO2)</div>
-   <div class="flex items-baseline gap-2 mt-1"><span id="spo2" class="display text-4xl md:text-5xl" style="color:#22d3ee">--%</span></div>
-   <div class="mono text-[10px] mt-2 text-emerald-400">MAX30102 PPG SENSOR</div>
-  </div>
-
-  <div class="panel border-l-4" style="border-color:#10b981">
-   <div class="mono text-xs text-slate-400">ECG VALUE (RAW / mV)</div>
-   <div class="flex items-baseline gap-2 mt-1"><span id="ecgRaw" class="display text-4xl md:text-5xl text-emerald-400">0</span><span id="ecgMv" class="mono text-xs text-slate-400">0.00 mV</span></div>
-   <div class="mono text-[10px] mt-2 text-emerald-400">AD8232 (PIN A0)</div>
-  </div>
-
-  <div class="panel border-l-4" style="border-color:#f59e0b">
-   <div class="mono text-xs text-slate-400">EMG VALUE (RAW / µV)</div>
-   <div class="flex items-baseline gap-2 mt-1"><span id="emgRaw" class="display text-4xl md:text-5xl text-amber-400">0</span><span id="emgUv" class="mono text-xs text-slate-400">0 µV</span></div>
-   <div class="mono text-[10px] mt-2 text-amber-400">BIOAMP EXG (PIN A1)</div>
-  </div>
+ <div class="panel border-l-4 border-cyan-500">
+  <div class="mono text-[10px] text-slate-400">BLOOD OXYGEN</div>
+  <div class="flex items-baseline gap-2 mt-1"><span id="spo2" class="display text-3xl text-cyan-400">--%</span></div>
  </div>
 
- <!-- DIAGNOSTICS PANEL -->
- <div id="diagnostics" class="panel mb-6 border-2 border-emerald-500/30 bg-slate-900/60">
-  <div class="flex items-center justify-between border-b pb-3 mb-3 border-slate-700">
-   <div class="flex items-center gap-2">
-    <span class="display text-lg text-emerald-400">Physiological Diagnostics</span>
-   </div>
-   <span id="healthBadge" class="mono text-xs px-3 py-1 rounded-full font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">MONITORING...</span>
-  </div>
-  <div class="grid md:grid-cols-2 gap-4">
-   <div>
-    <h4 class="mono text-xs text-slate-400 uppercase font-bold mb-1">Diagnostic Summary</h4>
-    <p id="healthSummary" class="text-sm text-slate-200">Streaming live biopotential signals...</p>
-   </div>
-   <div>
-    <h4 class="mono text-xs text-slate-400 uppercase font-bold mb-1">Recommendations</h4>
-    <ul id="healthAdvice" class="text-sm list-disc list-inside space-y-1 text-slate-300">
-     <li>Ensure electrode contacts are secure on skin.</li>
-    </ul>
-   </div>
-  </div>
+ <div class="panel border-l-4 border-emerald-500">
+  <div class="mono text-[10px] text-slate-400">ECG (RAW / mV)</div>
+  <div class="flex items-baseline gap-2 mt-1"><span id="ecgRaw" class="display text-3xl text-emerald-400">0</span><span id="ecgMv" class="mono text-xs text-slate-400">0.00 mV</span></div>
  </div>
 
- <!-- OSCILLOSCOPES WITH HIGH-MAGNIFICATION SERIAL PLOTTER -->
- <div class="grid lg:grid-cols-2 gap-5 mb-6">
-  
-  <!-- ECG Canvas -->
-  <div class="panel bg-slate-950 text-white">
-   <div class="mono text-xs flex justify-between items-center mb-2">
-    <span class="text-emerald-400 font-bold">ECG WAVEFORM {"ecg"}</span>
-    <span id="ecgHeaderRange" class="text-slate-400">MIN: 0 | MAX: 0</span>
-   </div>
-   <canvas id="ecgCanvas" class="w-full" style="height:260px; background:#040d1a; border-radius:0.75rem"></canvas>
-   <div class="mono text-[10px] text-slate-400 mt-2 flex justify-between">
-    <span>GREEN: RAW ECG SIGNAL TRACE</span>
-    <span>70 SAMPLES WINDOW</span>
-   </div>
-  </div>
-
-  <!-- EMG Canvas -->
-  <div class="panel bg-slate-950 text-white">
-   <div class="mono text-xs flex justify-between items-center mb-2">
-    <span class="text-amber-400 font-bold">EMG WAVEFORM {"exg"}</span>
-    <span id="emgHeaderRange" class="text-amber-300 font-bold">MIN: 0 | MAX: 0</span>
-   </div>
-   <canvas id="emgCanvas" class="w-full" style="height:260px; background:#0d121f; border-radius:0.75rem"></canvas>
-   <div class="mono text-[10px] text-slate-400 mt-2 flex justify-between">
-    <span>AMBER: RAW EMG SINGLE LINE TRACE</span>
-    <span>DYNAMIC AUTO-SCALE ZOOM</span>
-   </div>
-  </div>
-
+ <div class="panel border-l-4 border-amber-500">
+  <div class="mono text-[10px] text-slate-400">EMG (RAW / µV)</div>
+  <div class="flex items-baseline gap-2 mt-1"><span id="emgRaw" class="display text-3xl text-amber-400">0</span><span id="emgUv" class="mono text-xs text-slate-400">0 µV</span></div>
  </div>
+</div>
 
- <!-- SYSTEM LOGS -->
+<!-- DIAGNOSTICS BAR -->
+<div id="diagnostics" class="panel border border-emerald-500/20 bg-slate-900/40 flex items-center justify-between gap-4 py-2 px-4">
+ <span id="healthSummary" class="text-xs text-slate-300 font-medium">Streaming live biopotentials...</span>
+ <span id="healthBadge" class="mono text-xs px-2.5 py-0.5 rounded-full font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">MONITORING</span>
+</div>
+
+<!-- OSCILLOSCOPES -->
+<div class="grid lg:grid-cols-2 gap-4">
+ 
+ <!-- ECG Canvas -->
  <div class="panel bg-slate-950">
-  <div class="flex items-center justify-between mb-2">
-   <div class="mono text-xs text-slate-400">TELEMETRY EVENT LOGS</div>
-   <span id="dbCounter" class="mono text-xs text-emerald-400 font-bold">0 samples logged</span>
+  <div class="mono text-xs flex justify-between items-center mb-1">
+   <span class="text-emerald-400 font-bold">ECG WAVEFORM</span>
+   <span id="ecgHeaderRange" class="text-slate-400">MIN: 0 | MAX: 0</span>
   </div>
-  <div id="log" class="mono text-xs h-28 overflow-y-auto space-y-1 bg-slate-900 p-3 rounded-lg text-slate-300"></div>
+  <canvas id="ecgCanvas" class="w-full" style="height:240px; background:#040d1a; border-radius:0.5rem"></canvas>
  </div>
 
-</section>
+ <!-- EMG Canvas -->
+ <div class="panel bg-slate-950">
+  <div class="mono text-xs flex justify-between items-center mb-1">
+   <span class="text-amber-400 font-bold">EMG WAVEFORM</span>
+   <span id="emgHeaderRange" class="text-amber-300 font-bold">MIN: 0 | MAX: 0</span>
+  </div>
+  <canvas id="emgCanvas" class="w-full" style="height:240px; background:#0d121f; border-radius:0.5rem"></canvas>
+ </div>
+
+</div>
+
+<!-- SYSTEM LOGS -->
+<div class="panel bg-slate-950">
+ <div class="flex items-center justify-between mb-1">
+  <div class="mono text-[10px] text-slate-400">EVENT LOGS</div>
+  <span id="dbCounter" class="mono text-[10px] text-emerald-400">0 samples logged</span>
+ </div>
+ <div id="log" class="mono text-[11px] h-20 overflow-y-auto space-y-0.5 bg-slate-900 p-2 rounded text-slate-400"></div>
+</div>
 
 <!-- APPLICATION ENGINE -->
 <script>
@@ -169,9 +117,7 @@ function addLog(m) {
   if (logContainer) logContainer.prepend(d);
 }
 
-// ==========================================
-// 1. SAFE FIREBASE INITIALIZATION
-// ==========================================
+// FIREBASE INITIALIZATION
 let db = null;
 const currentSessionId = 'session_' + Date.now();
 let dbBuffer = [];
@@ -181,10 +127,10 @@ try {
   if (typeof firebase !== 'undefined') {
     firebase.initializeApp({ databaseURL: "https://vital-pal-db-default-rtdb.firebaseio.com" });
     db = firebase.database();
-    addLog("[Firebase] Realtime Database session started.");
+    addLog("Firebase Connected");
   }
 } catch (err) {
-  addLog("[Firebase] Running in local offline mode.");
+  addLog("Offline Mode");
 }
 
 setInterval(() => {
@@ -207,33 +153,23 @@ setInterval(() => {
       batch_time: new Date().toISOString(),
       samples_count: batchToSend.length,
       readings: batchToSend
-    }).catch(err => addLog(`[Firebase Error] ${err.message}`));
+    }).catch(err => {});
   }
 }, 1000);
 
-// ==========================================
-// 2. HIGH-ACCURACY SERIAL PLOTTER ENGINE
-// ==========================================
+// CANVAS & PLOTTER ENGINE
 function fit(c){const d=devicePixelRatio||1,r=c.getBoundingClientRect();c.width=r.width*d;c.height=r.height*d;c.getContext('2d').setTransform(d,0,0,d,0,0);return [r.width,r.height]}
 
 const ecgC = $('#ecgCanvas'), ecgX = ecgC.getContext('2d');
 const emgC = $('#emgCanvas'), emgX = emgC.getContext('2d');
 
-let EW=300, EH=260;
+let EW=300, EH=240;
 
-// Conversion Constants
-const AD8232_GAIN = 1100.0;
-const BIOAMP_GAIN = 2420.0;
-const ADC_REF_VOLTS = 5.0;
-const ADC_RESOLUTION = 1024.0;
-
+const AD8232_GAIN = 1100.0, BIOAMP_GAIN = 2420.0, ADC_REF_VOLTS = 5.0, ADC_RESOLUTION = 1024.0;
 const ECG_MV_PER_LSB = ((ADC_REF_VOLTS / ADC_RESOLUTION) / AD8232_GAIN) * 1000.0;
 const EMG_UV_PER_LSB = ((ADC_REF_VOLTS / ADC_RESOLUTION) / BIOAMP_GAIN) * 1000000.0;
 
-// Global Sample Index Counter for X-Axis Ticks
 let globalSampleCount = 0;
-
-// 70 samples visible window for expanded single-trace zoom (Image 2 style)
 const BUFFER_SIZE = 70;
 let ecgBuffer = new Array(BUFFER_SIZE).fill(0);
 let emgRawBuffer = new Array(BUFFER_SIZE).fill(0);
@@ -243,15 +179,10 @@ function initCanvases() {
   fit(emgC);
 }
 
-// Draw Precision Single-Line Serial Plotter with Numerical Y and X Grid Ticks
 function drawSerialPlotter(ctx, buffer, width, height, strokeColor) {
   if (!buffer || buffer.length === 0) return;
 
-  const marginLeft = 55;
-  const marginBottom = 25;
-  const marginTop = 15;
-  const marginRight = 15;
-
+  const marginLeft = 50, marginBottom = 20, marginTop = 10, marginRight = 10;
   const plotW = width - marginLeft - marginRight;
   const plotH = height - marginTop - marginBottom;
 
@@ -269,32 +200,29 @@ function drawSerialPlotter(ctx, buffer, width, height, strokeColor) {
   const plotMax = maxVal + span * 0.1;
   const plotRange = plotMax - plotMin || 1;
 
-  // --- 1. DRAW GRID & AXIS LABELS ---
   ctx.lineWidth = 0.5;
   ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
   ctx.fillStyle = '#94a3b8';
   ctx.font = "10px 'JetBrains Mono', monospace";
 
-  // Y-Axis Ticks (5 Levels)
+  // Y-Axis Ticks
   const ySteps = 4;
   for (let i = 0; i <= ySteps; i++) {
     const ratio = i / ySteps;
     const yPx = marginTop + plotH - (ratio * plotH);
     const val = minVal + ratio * span;
 
-    // Gridline
     ctx.beginPath();
     ctx.moveTo(marginLeft, yPx);
     ctx.lineTo(marginLeft + plotW, yPx);
     ctx.stroke();
 
-    // Numerical Tick Label
     ctx.textAlign = "right";
     const labelStr = Math.abs(val) >= 100 ? Math.round(val).toString() : val.toFixed(1);
     ctx.fillText(labelStr, marginLeft - 6, yPx + 3);
   }
 
-  // X-Axis Ticks (5 Sample Counters)
+  // X-Axis Ticks
   const xSteps = 4;
   const startSample = Math.max(0, globalSampleCount - BUFFER_SIZE);
   for (let i = 0; i <= xSteps; i++) {
@@ -302,20 +230,18 @@ function drawSerialPlotter(ctx, buffer, width, height, strokeColor) {
     const xPx = marginLeft + ratio * plotW;
     const sampleIdx = Math.round(startSample + ratio * BUFFER_SIZE);
 
-    // Vertical Gridline
     ctx.beginPath();
     ctx.moveTo(xPx, marginTop);
     ctx.lineTo(xPx, marginTop + plotH);
     ctx.stroke();
 
-    // X Label
     ctx.textAlign = "center";
-    ctx.fillText(sampleIdx.toString(), xPx, height - 6);
+    ctx.fillText(sampleIdx.toString(), xPx, height - 4);
   }
 
-  // --- 2. DRAW SINGLE CLEAN CONTINUOUS WAVEFORM TRACE ---
+  // Waveform Trace
   ctx.strokeStyle = strokeColor;
-  ctx.lineWidth = 2.2;
+  ctx.lineWidth = 2.0;
   ctx.lineJoin = 'round';
   ctx.lineCap = 'round';
 
@@ -331,13 +257,11 @@ function drawSerialPlotter(ctx, buffer, width, height, strokeColor) {
 }
 
 function renderOscilloscopes() {
-  // --- 1. ECG CANVAS ---
   ecgX.fillStyle = '#040d1a'; 
   ecgX.fillRect(0, 0, EW, EH);
   const ecgStats = drawSerialPlotter(ecgX, ecgBuffer, EW, EH, '#00E676');
   if (ecgStats) $('#ecgHeaderRange').textContent = `MIN: ${ecgStats.min} | MAX: ${ecgStats.max}`;
 
-  // --- 2. EMG CANVAS (SINGLE CLEAN AMBER LINE TRACE) ---
   emgX.fillStyle = '#0d121f'; 
   emgX.fillRect(0, 0, EW, EH);
   const emgStats = drawSerialPlotter(emgX, emgRawBuffer, EW, EH, '#f59e0b');
@@ -346,65 +270,40 @@ function renderOscilloscopes() {
   requestAnimationFrame(renderOscilloscopes);
 }
 
-// ==========================================
-// 3. DIAGNOSTICS ENGINE
-// ==========================================
+// DIAGNOSTICS ENGINE
 function evaluateHealthDiagnostics(bpm, spo2, rawEcg, rawEmg) {
   const badge = $('#healthBadge');
   const summary = $('#healthSummary');
-  const adviceList = $('#healthAdvice');
 
-  let status = "NORMAL";
-  let colorClass = "bg-emerald-500/20 text-emerald-400 border-emerald-500/40";
+  let status = "MONITORING";
+  let colorClass = "bg-emerald-500/20 text-emerald-400 border-emerald-500/30";
   let summaryText = [];
-  let advice = [];
 
   if (bpm > 0) {
-    if (bpm < 60) {
-      status = "BRADYCARDIA";
-      summaryText.push("Heart rate is low (< 60 BPM).");
-    } else if (bpm > 100) {
-      status = "TACHYCARDIA";
-      summaryText.push("Heart rate is elevated (> 100 BPM).");
-    } else {
-      summaryText.push("Heart rate in normal range (60–100 BPM).");
-    }
+    if (bpm < 60) { status = "BRADYCARDIA"; summaryText.push("HR Low (< 60 BPM)."); }
+    else if (bpm > 100) { status = "TACHYCARDIA"; summaryText.push("HR Elevated (> 100 BPM)."); }
+    else { summaryText.push(`HR Normal (${Math.round(bpm)} BPM).`); }
   } else {
-    summaryText.push("Awaiting pulse sensor connection.");
+    summaryText.push("Awaiting pulse sensor.");
   }
 
   if (spo2 > 0) {
-    if (spo2 < 90) {
-      status = "CRITICAL HYPOXIA";
-      summaryText.push("SpO2 critical (< 90%).");
-    } else if (spo2 < 95) {
-      if (!status.includes("CRITICAL")) status = "MILD HYPOXIA";
-      summaryText.push("SpO2 mildly low (90–94%).");
-    } else {
-      summaryText.push("Blood oxygen healthy (>= 95%).");
-    }
+    if (spo2 < 90) { status = "CRITICAL HYPOXIA"; summaryText.push("SpO2 Critical (< 90%)."); }
+    else if (spo2 < 95) { if (!status.includes("CRITICAL")) status = "MILD HYPOXIA"; summaryText.push("SpO2 Low (90-94%)."); }
+    else { summaryText.push(`SpO2 Optimal (${Math.round(spo2)}%).`); }
   }
 
-  if (Math.abs(rawEmg) > 100) {
-    summaryText.push("Active muscle exertion detected on EMG channel.");
-  }
+  if (Math.abs(rawEmg) > 100) summaryText.push("EMG Contraction active.");
 
-  if (advice.length === 0) {
-    advice.push("Signal baseline stable. Plotter tracking active.");
-  }
+  if (status.includes("CRITICAL")) colorClass = "bg-red-500/20 text-red-400 border-red-500/30";
+  else if (status !== "MONITORING") colorClass = "bg-amber-500/20 text-amber-400 border-amber-500/30";
 
-  if (status.includes("CRITICAL")) colorClass = "bg-red-500/20 text-red-400 border-red-500/40";
-  else if (status !== "NORMAL") colorClass = "bg-amber-500/20 text-amber-400 border-amber-500/40";
-
-  badge.className = `mono text-xs px-3 py-1 rounded-full font-bold border ${colorClass}`;
+  badge.className = `mono text-xs px-2.5 py-0.5 rounded-full font-bold border ${colorClass}`;
   badge.textContent = status;
   summary.textContent = summaryText.join(" ");
-  adviceList.innerHTML = advice.map(item => `<li>${item}</li>`).join("");
 }
 
-// ==========================================
-// 4. TELEMETRY INGESTION ENGINE
-// ==========================================
+// INGESTION ENGINE
 function ingest(line) {
   line = line.trim();
   if (!line) return;
@@ -428,8 +327,8 @@ function ingest(line) {
     $('#emgRaw').textContent = rawEmg;
     $('#emgUv').textContent  = `${Math.round(emgUv)} µV`;
 
-    $('#lock').textContent = bpmVal > 0 ? '● PULSE DETECTED' : '○ SEARCHING PULSE';
-    $('#lock').className = bpmVal > 0 ? 'mono text-[10px] mt-2 text-emerald-400' : 'mono text-[10px] mt-2 text-amber-400';
+    $('#lock').textContent = bpmVal > 0 ? '● LOCKED' : '○ SEARCHING';
+    $('#lock').className = bpmVal > 0 ? 'mono text-[10px] mt-1 text-emerald-400' : 'mono text-[10px] mt-1 text-amber-400';
 
     ecgBuffer.push(rawEcg);
     if (ecgBuffer.length > BUFFER_SIZE) ecgBuffer.shift();
@@ -443,11 +342,8 @@ function ingest(line) {
   } catch (e) {}
 }
 
-// ==========================================
-// 5. WEBSOCKET CONTROLLER
-// ==========================================
-let ws = null;
-let isWsConnected = false;
+// WEBSOCKET CONTROLLER
+let ws = null, isWsConnected = false;
 
 function connectWebSocket() {
   const ipInput = $('#wsIp');
@@ -460,45 +356,40 @@ function connectWebSocket() {
     else wsUrl = `ws://${wsUrl}`;
   }
 
-  addLog(`Connecting to Gateway: ${wsUrl}...`);
+  addLog(`Connecting to ${wsUrl}...`);
 
   try {
     ws = new WebSocket(wsUrl);
 
     ws.onopen = () => {
       isWsConnected = true;
-      $('#wsConnectBtn').textContent = "Disconnect Gateway";
+      $('#wsConnectBtn').textContent = "Disconnect";
       $('#wsStatus').textContent = "100 Hz Stream Active";
       $('#wsStatus').className = "mono text-xs px-3 py-1 rounded-full bg-emerald-900 text-emerald-200 font-bold";
-      addLog(">>> Telemetry Gateway Connected Successfully!");
+      addLog("Gateway Connected");
     };
 
     ws.onmessage = (event) => ingest(event.data);
-
-    ws.onerror = (err) => {
-      addLog(`[WebSocket Error] Connection failed to ${wsUrl}.`);
-    };
-
+    ws.onerror = () => addLog("Connection error");
     ws.onclose = () => {
       isWsConnected = false;
-      $('#wsConnectBtn').textContent = "Connect WebSocket (100 Hz)";
+      $('#wsConnectBtn').textContent = "Connect WebSocket";
       $('#wsStatus').textContent = "Disconnected";
       $('#wsStatus').className = "mono text-xs px-3 py-1 rounded-full bg-slate-800 text-slate-400 font-bold";
-      addLog("[WebSocket] Connection closed.");
+      addLog("Connection closed");
     };
   } catch (err) {
-    addLog(`[WebSocket Error] ${err.message}`);
+    addLog(`Error: ${err.message}`);
   }
 }
 
-// Direct Web Serial / Bluetooth
 async function connectBluetoothSerial() {
   try {
-    if (!('serial' in navigator)) throw new Error('Web Serial unsupported on this browser.');
+    if (!('serial' in navigator)) throw new Error('Web Serial unsupported');
     const port = await navigator.serial.requestPort();
     await port.open({ baudRate: 115200 });
 
-    addLog('Bluetooth / Serial connected at 115200 baud');
+    addLog('Serial connected');
     const dec = new TextDecoderStream();
     port.readable.pipeTo(dec.writable);
     const rd = dec.readable.getReader();
@@ -513,13 +404,10 @@ async function connectBluetoothSerial() {
       ls.forEach(ingest);
     }
   } catch (e) {
-    addLog('Stream Error: ' + (e.message || 'connection closed'));
+    addLog('Stream Error: ' + (e.message || 'closed'));
   }
 }
 
-// ==========================================
-// 6. INITIALIZATION & CONTROLS
-// ==========================================
 window.addEventListener('DOMContentLoaded', () => {
   initCanvases();
   renderOscilloscopes();
@@ -544,7 +432,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
   $('#btBtn').addEventListener('click', connectBluetoothSerial);
 
-  addLog("[System] Precision Telemetry Plotter initialized.");
+  addLog("Dashboard initialized");
 });
 
 window.addEventListener('resize', initCanvases);
