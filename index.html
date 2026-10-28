@@ -24,11 +24,6 @@ body{background:var(--bg);color:var(--ink);font-family:'Space Grotesk',system-ui
 .cta{background:var(--neon);color:#052e1a;font-weight:700;border-radius:999px;padding:.55rem 1.1rem;font-size:.85rem;box-shadow:0 0 0 0 rgba(0,230,118,.6);animation:glow 2.4s infinite;transition:.2s}
 .cta:hover{box-shadow:0 0 28px 6px rgba(0,230,118,.55);transform:translateY(-1px)}
 @keyframes glow{0%{box-shadow:0 0 0 0 rgba(0,230,118,.55)}70%{box-shadow:0 0 0 14px rgba(0,230,118,0)}100%{box-shadow:0 0 0 0 rgba(0,230,118,0)}}
-.tcard{background:var(--card);border-radius:1.5rem;padding:.6rem;box-shadow:0 18px 40px -12px rgba(17,24,39,.3);transform:rotate(var(--r));transition:transform .35s;animation:bob 6s ease-in-out infinite}
-.tcard:hover{transform:rotate(0) scale(1.05) translateY(-6px)}
-@keyframes bob{50%{translate:0 -8px}}
-.tcard svg{border-radius:1.1rem;width:100%;height:auto;display:block}
-.tag{font-size:.7rem;padding:.4rem .6rem .1rem}
 .panel{background:var(--card);border-radius:1.5rem;padding:1.25rem;box-shadow:0 10px 30px -14px rgba(17,24,39,.25)}
 .tog button{padding:.5rem 1rem;border-radius:999px;font-size:.8rem}
 .tog button.on{background:#111827;color:#fff}
@@ -38,6 +33,7 @@ body{background:var(--bg);color:var(--ink);font-family:'Space Grotesk',system-ui
 </head>
 <body>
 
+<!-- TOP NAVIGATION BAR -->
 <header class="fixed left-0 right-0 z-50 flex justify-center px-3" style="top:calc(env(safe-area-inset-top,0px) + 12px)">
  <div class="w-full max-w-5xl flex items-center justify-between gap-2 rounded-full px-3 py-2 backdrop-blur" style="background:color-mix(in srgb,var(--card) 85%,transparent);box-shadow:0 8px 30px -10px rgba(0,0,0,.3)">
   <a href="#top" class="flex items-center gap-2 display text-lg pl-2"><span class="w-3 h-3 rounded-full" style="background:var(--neon);box-shadow:0 0 10px var(--neon)"></span>VITAL-PAL</a>
@@ -48,21 +44,33 @@ body{background:var(--bg);color:var(--ink);font-family:'Space Grotesk',system-ui
  </div>
 </header>
 
-<!-- HERO -->
-<section id="top" class="relative px-4 pt-32 pb-10 max-w-6xl mx-auto">
+<!-- HERO SECTION -->
+<section id="top" class="relative px-4 pt-32 pb-6 max-w-6xl mx-auto">
  <div class="relative text-center">
   <h1 class="display text-[15vw] md:text-[8rem] leading-none">VITAL-PAL</h1>
   <p class="mx-auto mt-4 max-w-xl text-lg md:text-xl" style="color:var(--muted)">Multi-Parameter Telemetry Engine with Automated Patient Diagnostics.</p>
  </div>
 </section>
 
-<!-- LIVE METRICS & HEALTH DIAGNOSTICS -->
-<section id="live" class="px-4 py-8 max-w-6xl mx-auto">
+<!-- MAIN MONITORING DASHBOARD -->
+<section id="live" class="px-4 py-6 max-w-6xl mx-auto">
  
  <div class="flex flex-wrap items-end justify-between gap-4 mb-4">
   <h2 class="display text-3xl md:text-5xl">Live <span style="color:var(--mint)">Vitals</span></h2>
   <div class="tog flex flex-wrap rounded-2xl p-1" style="background:var(--card)">
-   <button id="mLive" class="on">Live Bluetooth / USB Stream</button><button id="mCloud">ThingSpeak Cloud (1s Poll)</button>
+   <button id="mLive" class="on">Live Stream Mode</button><button id="mCloud">ThingSpeak Cloud (1s Poll)</button>
+  </div>
+ </div>
+
+ <!-- WEBSOCKET DIRECT CONTROL PANEL -->
+ <div class="panel mb-5 flex flex-wrap items-center justify-between gap-3 border-2 border-emerald-500/40">
+  <div class="flex items-center gap-2 w-full sm:w-auto">
+   <span class="mono text-xs text-slate-400 font-bold">ESP32 IP:</span>
+   <input id="wsIp" type="text" placeholder="e.g. 192.168.43.150" class="panel px-3 py-1.5 text-xs mono w-48 text-slate-900 font-bold border" style="border-radius:999px">
+   <button id="wsConnectBtn" onclick="toggleWebSocket()" class="cta py-1.5 px-4 text-xs">Connect WebSocket (100 Hz)</button>
+  </div>
+  <div id="wsStatus" class="mono text-xs px-3 py-1 rounded-full bg-slate-700 text-slate-300 font-bold">
+   WebSocket Disconnected
   </div>
  </div>
 
@@ -116,7 +124,7 @@ body{background:var(--bg);color:var(--ink);font-family:'Space Grotesk',system-ui
     <p id="healthSummary" class="text-sm">Monitoring patient vitals in real-time...</p>
    </div>
    <div>
-    <h4 class="mono text-xs text-slate-400 uppercase font-bold mb-1">Clinical Advice &amp; Recommendations</h4>
+    <h4 class="mono text-xs text-slate-400 uppercase font-bold mb-1">Clinical Advice & Recommendations</h4>
     <ul id="healthAdvice" class="text-sm list-disc list-inside space-y-1 text-slate-300">
      <li>Ensure electrodes and finger sensors are securely attached.</li>
     </ul>
@@ -151,6 +159,7 @@ body{background:var(--bg);color:var(--ink);font-family:'Space Grotesk',system-ui
 
 </section>
 
+<!-- SCRIPT BLOCK AT END OF BODY -->
 <script>
 const $=s=>document.querySelector(s);
 
@@ -177,7 +186,6 @@ setInterval(() => {
     totalLoggedSamples += batchToSend.length;
     $('#dbCounter').textContent = `${totalLoggedSamples} samples saved`;
 
-    // Direct write to /live_telemetry endpoint for latest values
     const latest = batchToSend[batchToSend.length - 1];
     db.ref('live_telemetry').set({
       timestamp: Date.now(),
@@ -187,7 +195,6 @@ setInterval(() => {
       emg: latest.emg
     });
 
-    // Append history session log
     db.ref(`sessions/${currentSessionId}`).push({
       batch_time: new Date().toISOString(),
       samples_count: batchToSend.length,
@@ -221,7 +228,7 @@ function pushEcgSample(v) { ecgBuf.push(v); if(ecgBuf.length > 300) ecgBuf.shift
 function pushEmgSample(v) { emgBuf.push(v); if(emgBuf.length > 300) emgBuf.shift(); }
 
 function renderOscilloscopes() {
-  // --- Render ECG (Green) ---
+  // Render ECG (Green)
   ecgX.fillStyle = '#020617'; ecgX.fillRect(0, 0, EW, EH);
   drawGrid(ecgX);
   ecgX.strokeStyle = '#00E676'; ecgX.lineWidth = 2; ecgX.beginPath();
@@ -232,7 +239,7 @@ function renderOscilloscopes() {
   });
   ecgX.stroke();
 
-  // --- Render EMG (Purple) ---
+  // Render EMG (Purple)
   emgX.fillStyle = '#020617'; emgX.fillRect(0, 0, EW, EH);
   drawGrid(emgX);
   emgX.strokeStyle = '#c084fc'; emgX.lineWidth = 2; emgX.beginPath();
@@ -254,7 +261,7 @@ function drawGrid(ctx) {
 }
 
 // ==========================================
-// 3. HEALTH DIAGNOSTICS & ADVICE ENGINE
+// 3. CLINICAL HEALTH DIAGNOSTICS
 // ==========================================
 function evaluateHealthDiagnostics(bpm, spo2, ecg, emg) {
   const badge = $('#healthBadge');
@@ -266,16 +273,15 @@ function evaluateHealthDiagnostics(bpm, spo2, ecg, emg) {
   let summaryText = [];
   let advice = [];
 
-  // Heart Rate Assessment
   if (bpm > 0) {
     if (bpm < 60) {
       status = "WARNING";
-      summaryText.push("Bradycardia detected (Resting Heart Rate < 60 BPM).");
-      advice.push("Low resting heart rate. If feeling dizzy or fatigued, rest and consult a physician.");
+      summaryText.push("Bradycardia detected (Heart Rate < 60 BPM).");
+      advice.push("Low resting heart rate. If dizzy or fatigued, rest and consult a doctor.");
     } else if (bpm > 100) {
       status = "WARNING";
-      summaryText.push("Tachycardia detected (Elevated Heart Rate > 100 BPM).");
-      advice.push("Elevated heart rate detected. Rest in a cool space, hydrate, and avoid stress.");
+      summaryText.push("Tachycardia detected (Elevated HR > 100 BPM).");
+      advice.push("Elevated heart rate detected. Rest, hydrate, and reduce stress.");
     } else {
       summaryText.push("Heart rate is within normal resting range (60–100 BPM).");
     }
@@ -283,12 +289,11 @@ function evaluateHealthDiagnostics(bpm, spo2, ecg, emg) {
     summaryText.push("Awaiting pulse signal from finger sensor.");
   }
 
-  // SpO2 Assessment
   if (spo2 > 0) {
     if (spo2 < 90) {
       status = "CRITICAL";
       summaryText.push("Critical Hypoxia Alert! Blood oxygen is below 90%.");
-      advice.push("ALERT: Oxygen level critical (<90%). Sit upright, take deep breaths, and seek emergency care.");
+      advice.push("ALERT: Oxygen level critical (<90%). Practice deep breathing and seek emergency medical care.");
     } else if (spo2 < 95) {
       if (status !== "CRITICAL") status = "WARNING";
       summaryText.push("Mild Hypoxia (SpO2 90–94%).");
@@ -298,19 +303,16 @@ function evaluateHealthDiagnostics(bpm, spo2, ecg, emg) {
     }
   }
 
-  // EMG Muscle Contraction Assessment
   if (Math.abs(emg) > 150) {
     summaryText.push("High muscle activation/strain detected on EXG channel.");
-    advice.push("Significant muscle tension detected. Relax target muscle groups to avoid fatigue.");
+    advice.push("Significant muscle tension detected. Relax target muscle groups to avoid muscle fatigue.");
   }
 
-  // Default Advice if all normal
   if (advice.length === 0) {
     advice.push("All monitored physiological parameters are currently within normal thresholds.");
     advice.push("Maintain steady hydration and regular resting intervals.");
   }
 
-  // Update UI Badge
   if (status === "CRITICAL") {
     colorClass = "bg-red-500/20 text-red-400 border-red-500/40";
   } else if (status === "WARNING") {
@@ -320,7 +322,6 @@ function evaluateHealthDiagnostics(bpm, spo2, ecg, emg) {
   badge.className = `mono text-xs px-3 py-1 rounded-full font-bold border ${colorClass}`;
   badge.textContent = status;
   summary.textContent = summaryText.join(" ");
-
   adviceList.innerHTML = advice.map(item => `<li>${item}</li>`).join("");
 }
 
@@ -343,7 +344,6 @@ function ingest(line) {
     return;
   }
 
-  // Update DOM Cards
   if (bpmVal > 0)  $('#bpm').textContent  = Math.round(bpmVal);
   if (spo2Val > 0) $('#spo2').textContent = `${Math.round(spo2Val)}%`;
   $('#ecgVal').textContent = Math.round(ecgVal);
@@ -352,20 +352,75 @@ function ingest(line) {
   $('#lock').textContent = bpmVal > 0 ? '● FINGER DETECTED' : '○ NO FINGER';
   $('#lock').style.color = bpmVal > 0 ? 'var(--mint)' : '#f59e0b';
 
-  // Push samples to dual oscilloscopes
   pushEcgSample(Math.max(-150, Math.min(250, ecgVal)));
   pushEmgSample(Math.max(-150, Math.min(250, emgVal)));
 
-  // Run Health Assessment Engine
   evaluateHealthDiagnostics(bpmVal, spo2Val, ecgVal, emgVal);
-
-  // Queue to Firebase buffer
   dbBuffer.push({ ts: Date.now(), bpm: bpmVal, spo2: spo2Val, ecg: ecgVal, emg: emgVal });
 }
 
+// ==========================================
+// 5. WEBSOCKET ENGINE (100 Hz Sub-Second Stream)
+// ==========================================
+let ws = null;
+let isWsConnected = false;
+
+function toggleWebSocket() {
+  if (isWsConnected) {
+    disconnectWebSocket();
+  } else {
+    connectWebSocket();
+  }
+}
+
+function connectWebSocket() {
+  const ip = document.getElementById('wsIp').value.trim();
+  if (!ip) {
+    alert("Please enter your ESP32 IP address from the Serial Monitor.");
+    return;
+  }
+
+  const wsUrl = `ws://${ip}:81`;
+  addLog(`Connecting to WebSocket: ${wsUrl}...`);
+
+  ws = new WebSocket(wsUrl);
+
+  ws.onopen = () => {
+    isWsConnected = true;
+    document.getElementById('wsConnectBtn').textContent = "Disconnect WebSocket";
+    document.getElementById('wsStatus').textContent = "Connected (100 Hz Stream)";
+    document.getElementById('wsStatus').className = "mono text-xs px-3 py-1 rounded-full bg-emerald-900 text-emerald-200 font-bold";
+    addLog("WebSocket stream active!");
+  };
+
+  ws.onmessage = (event) => {
+    ingest(event.data);
+  };
+
+  ws.onerror = (err) => {
+    console.error("WebSocket Error:", err);
+    addLog("WebSocket error encountered.");
+  };
+
+  ws.onclose = () => {
+    isWsConnected = false;
+    document.getElementById('wsConnectBtn').textContent = "Connect WebSocket (100 Hz)";
+    document.getElementById('wsStatus').textContent = "WebSocket Disconnected";
+    document.getElementById('wsStatus').className = "mono text-xs px-3 py-1 rounded-full bg-slate-700 text-slate-300 font-bold";
+    addLog("WebSocket connection closed.");
+  };
+}
+
+function disconnectWebSocket() {
+  if (ws) {
+    ws.close();
+  }
+}
+
+// Bluetooth / Serial Fallback
 async function connectBluetoothSerial() {
   try {
-    if (!('serial' in navigator)) throw new Error('Web Serial/Bluetooth API unsupported on this browser.');
+    if (!('serial' in navigator)) throw new Error('Web Serial unsupported on this browser.');
     const port = await navigator.serial.requestPort();
     await port.open({ baudRate: 115200 });
 
@@ -388,8 +443,9 @@ async function connectBluetoothSerial() {
   }
 }
 
-// ThingSpeak 1-Second Fast Cloud Polling
+// ThingSpeak 1-Second Fast Cloud Fallback Polling
 async function pollCloud() {
+  if (isWsConnected) return; // Prioritize WebSocket stream if connected
   const url = `https://api.thingspeak.com/channels/3546624/feeds/last.json?api_key=MJRP0Y9D6ELJ0L9S`;
   try {
     const r = await fetch(url);
