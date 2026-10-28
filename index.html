@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>VITAL-PAL — Clinical Telemetry & Diagnostics Monitor</title>
+<title>VITAL-PAL — Telemetry Monitor & Serial Plotter</title>
 <script src="https://cdn.tailwindcss.com/3.4.17"></script>
 <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
 
@@ -33,9 +33,9 @@ body{background:var(--bg);color:var(--ink);font-family:'Space Grotesk',system-ui
 <!-- TOP NAVIGATION BAR -->
 <header class="fixed left-0 right-0 z-50 flex justify-center px-3" style="top:calc(env(safe-area-inset-top,0px) + 12px)">
  <div class="w-full max-w-5xl flex items-center justify-between gap-2 rounded-full px-3 py-2 backdrop-blur" style="background:rgba(19, 27, 46, 0.85);box-shadow:0 8px 30px -10px rgba(0,0,0,.5); border:1px solid rgba(255,255,255,0.1)">
-  <a href="#top" class="flex items-center gap-2 display text-lg pl-2"><span class="w-3 h-3 rounded-full" style="background:var(--neon);box-shadow:0 0 10px var(--neon)"></span>VITAL-PAL CLINICAL</a>
+  <a href="#top" class="flex items-center gap-2 display text-lg pl-2"><span class="w-3 h-3 rounded-full" style="background:var(--neon);box-shadow:0 0 10px var(--neon)"></span>VITAL-PAL TELEMETRY</a>
   <nav class="hidden md:flex gap-2">
-   <a class="pill" href="#top">Overview</a><a class="pill" href="#diagnostics">Clinical AI</a><a class="pill" href="#live">Telemetry Stream</a>
+   <a class="pill" href="#top">Overview</a><a class="pill" href="#diagnostics">Diagnostics</a><a class="pill" href="#live">Live Stream</a>
   </nav>
   <button id="btBtn" class="cta">Connect Serial / BT</button>
  </div>
@@ -44,15 +44,15 @@ body{background:var(--bg);color:var(--ink);font-family:'Space Grotesk',system-ui
 <!-- HERO SECTION -->
 <section id="top" class="relative px-4 pt-28 pb-4 max-w-6xl mx-auto">
  <div class="relative text-center">
-  <h1 class="display text-[12vw] md:text-[6.5rem] leading-none text-emerald-400">CLINICAL TELEMETRY</h1>
-  <p class="mx-auto mt-2 max-w-2xl text-sm md:text-base text-slate-400">Diagnostic-grade biopotential plotting engine calibrated to standard 25 mm/s paper speed and 10 mm/mV voltage scale.</p>
+  <h1 class="display text-[12vw] md:text-[6.5rem] leading-none text-emerald-400">SERIAL PLOTTER ENGINE</h1>
+  <p class="mx-auto mt-2 max-w-2xl text-sm md:text-base text-slate-400">Real-time biopotential plotting engine featuring dynamic auto-scaling identical to the Arduino IDE Serial Plotter.</p>
  </div>
 </section>
 
 <!-- MAIN MONITORING DASHBOARD -->
 <section id="live" class="px-4 py-4 max-w-6xl mx-auto">
 
- <!-- 1. WEBSOCKET & CLINICAL CONTROLS -->
+ <!-- 1. WEBSOCKET & PLOTTER CONTROLS -->
  <div class="panel mb-4 flex flex-wrap items-center justify-between gap-3 border-emerald-500/40">
   <div class="flex flex-wrap items-center gap-2 w-full lg:w-auto">
    <span class="mono text-xs font-bold text-slate-400">ESP32 Address:</span>
@@ -60,22 +60,12 @@ body{background:var(--bg);color:var(--ink);font-family:'Space Grotesk',system-ui
    <button id="wsConnectBtn" class="cta py-1.5 px-4 text-xs">Connect WebSocket (100 Hz)</button>
   </div>
   
-  <!-- CLINICAL CALIBRATION CONTROLS -->
   <div class="flex flex-wrap items-center gap-3">
    <div class="flex items-center gap-1">
-    <span class="mono text-[10px] text-slate-400">Gain:</span>
-    <select id="gainSelect" class="bg-slate-900 text-xs mono px-2 py-1 rounded border border-slate-700 text-emerald-400 font-bold">
-     <option value="5">5 mm/mV</option>
-     <option value="10" selected>10 mm/mV (Standard)</option>
-     <option value="20">20 mm/mV</option>
-    </select>
-   </div>
-   <div class="flex items-center gap-1">
-    <span class="mono text-[10px] text-slate-400">Speed:</span>
-    <select id="speedSelect" class="bg-slate-900 text-xs mono px-2 py-1 rounded border border-slate-700 text-emerald-400 font-bold">
-     <option value="12.5">12.5 mm/s</option>
-     <option value="25" selected>25 mm/s (Standard)</option>
-     <option value="50">50 mm/s</option>
+    <span class="mono text-[10px] text-slate-400">Plot Mode:</span>
+    <select id="scaleSelect" class="bg-slate-900 text-xs mono px-2 py-1 rounded border border-slate-700 text-emerald-400 font-bold">
+     <option value="auto" selected>Auto-Scale (Serial Plotter)</option>
+     <option value="fixed">Fixed Clinical Scale</option>
     </select>
    </div>
    <div id="wsStatus" class="mono text-xs px-3 py-1 rounded-full bg-slate-800 text-slate-400 font-bold">
@@ -99,66 +89,66 @@ body{background:var(--bg);color:var(--ink);font-family:'Space Grotesk',system-ui
   </div>
 
   <div class="panel border-l-4" style="border-color:#10b981">
-   <div class="mono text-xs text-slate-400">ECG AMPLITUDE</div>
-   <div class="flex items-baseline gap-2 mt-1"><span id="ecgMv" class="display text-4xl md:text-5xl text-emerald-400">N/C</span><span class="mono text-xs text-slate-400">mV</span></div>
-   <div class="mono text-[10px] mt-2 text-emerald-400">AD8232 (LEAD II)</div>
+   <div class="mono text-xs text-slate-400">ECG SIGNAL (RAW / mV)</div>
+   <div class="flex items-baseline gap-2 mt-1"><span id="ecgRaw" class="display text-4xl md:text-5xl text-emerald-400">0</span><span id="ecgMv" class="mono text-xs text-slate-400">0.00 mV</span></div>
+   <div class="mono text-[10px] mt-2 text-emerald-400">AD8232 (PIN A0)</div>
   </div>
 
   <div class="panel border-l-4" style="border-color:#a855f7">
-   <div class="mono text-xs text-slate-400">EMG RMS AMPLITUDE</div>
-   <div class="flex items-baseline gap-2 mt-1"><span id="emgUv" class="display text-4xl md:text-5xl text-purple-400">N/C</span><span class="mono text-xs text-slate-400">µV</span></div>
-   <div class="mono text-[10px] mt-2 text-purple-400">BIOAMP EXG (MUSCLE EFFORT)</div>
+   <div class="mono text-xs text-slate-400">EMG SIGNAL (RAW / µV)</div>
+   <div class="flex items-baseline gap-2 mt-1"><span id="emgRaw" class="display text-4xl md:text-5xl text-purple-400">0</span><span id="emgUv" class="mono text-xs text-slate-400">0 µV</span></div>
+   <div class="mono text-[10px] mt-2 text-purple-400">BIOAMP EXG (PIN A1)</div>
   </div>
  </div>
 
- <!-- CLINICAL HEALTH AI DIAGNOSTICS PANEL -->
+ <!-- DIAGNOSTICS PANEL -->
  <div id="diagnostics" class="panel mb-6 border-2 border-emerald-500/30 bg-slate-900/60">
   <div class="flex items-center justify-between border-b pb-3 mb-3 border-slate-700">
    <div class="flex items-center gap-2">
-    <span class="display text-lg text-emerald-400">Physiological Interpretation</span>
+    <span class="display text-lg text-emerald-400">Physiological Diagnostics</span>
    </div>
-   <span id="healthBadge" class="mono text-xs px-3 py-1 rounded-full font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">CALIBRATING...</span>
+   <span id="healthBadge" class="mono text-xs px-3 py-1 rounded-full font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">MONITORING...</span>
   </div>
   <div class="grid md:grid-cols-2 gap-4">
    <div>
-    <h4 class="mono text-xs text-slate-400 uppercase font-bold mb-1">Diagnostic Findings</h4>
-    <p id="healthSummary" class="text-sm text-slate-200">Monitoring patient biopotentials in real-time...</p>
+    <h4 class="mono text-xs text-slate-400 uppercase font-bold mb-1">Diagnostic Summary</h4>
+    <p id="healthSummary" class="text-sm text-slate-200">Streaming live biopotential signals...</p>
    </div>
    <div>
-    <h4 class="mono text-xs text-slate-400 uppercase font-bold mb-1">Physician Recommendations</h4>
+    <h4 class="mono text-xs text-slate-400 uppercase font-bold mb-1">Recommendations</h4>
     <ul id="healthAdvice" class="text-sm list-disc list-inside space-y-1 text-slate-300">
-     <li>Verify electrode contact resistance and ground lead placement.</li>
+     <li>Ensure electrode contacts are secure on skin.</li>
     </ul>
    </div>
   </div>
  </div>
 
- <!-- CLINICAL OSCILLOSCOPES WITH MEDICAL GRIDS -->
+ <!-- OSCILLOSCOPES WITH AUTO-SCALING -->
  <div class="grid lg:grid-cols-2 gap-5 mb-6">
   
   <!-- ECG Canvas -->
   <div class="panel bg-slate-950 text-white">
    <div class="mono text-xs flex justify-between mb-2">
-    <span class="text-emerald-400 font-bold">ECG LEAD II (AD8232)</span>
-    <span id="ecgScaleLabel" class="text-slate-400">25 mm/s | 10 mm/mV</span>
+    <span class="text-emerald-400 font-bold">ECG WAVEFORM (SERIAL PLOTTER MODE)</span>
+    <span id="ecgRangeLabel" class="text-slate-400">RANGE: AUTO</span>
    </div>
    <canvas id="ecgCanvas" class="w-full" style="height:250px; background:#040d1a; border-radius:0.75rem"></canvas>
    <div class="mono text-[10px] text-slate-400 mt-2 flex justify-between">
-    <span>CALIBRATION: 1 mV PULSE LEFT</span>
-    <span>GRID: 1mm (0.04s) / 5mm (0.2s)</span>
+    <span>GREEN: RAW ECG SIGNAL</span>
+    <span>DYNAMIC Y-AXIS AUTO-SCALE</span>
    </div>
   </div>
 
   <!-- EMG Canvas -->
   <div class="panel bg-slate-950 text-white">
    <div class="mono text-xs flex justify-between mb-2">
-    <span class="text-purple-400 font-bold">EMG MUSCLE ACTION (RAW + RMS ENVELOPE)</span>
-    <span id="emgScaleLabel" class="text-slate-400">FULL SCALE: ±500 µV</span>
+    <span class="text-purple-400 font-bold">EMG MUSCLE WAVEFORM (SERIAL PLOTTER MODE)</span>
+    <span id="emgRangeLabel" class="text-slate-400">RANGE: AUTO</span>
    </div>
    <canvas id="emgCanvas" class="w-full" style="height:250px; background:#0f071a; border-radius:0.75rem"></canvas>
    <div class="mono text-[10px] text-slate-400 mt-2 flex justify-between">
-    <span>WHITE LINE: RAW SPIKES</span>
-    <span class="text-purple-400 font-bold">PURPLE LINE: RMS ENVELOPE</span>
+    <span>WHITE: RAW SPIKES</span>
+    <span class="text-purple-400 font-bold">PURPLE: RMS ENVELOPE</span>
    </div>
   </div>
 
@@ -167,7 +157,7 @@ body{background:var(--bg);color:var(--ink);font-family:'Space Grotesk',system-ui
  <!-- SYSTEM LOGS -->
  <div class="panel bg-slate-950">
   <div class="flex items-center justify-between mb-2">
-   <div class="mono text-xs text-slate-400">CLINICAL TELEMETRY EVENT LOGS</div>
+   <div class="mono text-xs text-slate-400">TELEMETRY EVENT LOGS</div>
    <span id="dbCounter" class="mono text-xs text-emerald-400 font-bold">0 samples logged</span>
   </div>
   <div id="log" class="mono text-xs h-28 overflow-y-auto space-y-1 bg-slate-900 p-3 rounded-lg text-slate-300"></div>
@@ -216,8 +206,8 @@ setInterval(() => {
       timestamp: Date.now(),
       bpm: latest.bpm,
       spo2: latest.spo2,
-      ecg_mv: latest.ecgMv,
-      emg_uv: latest.emgUv
+      ecg: latest.rawEcg,
+      emg: latest.rawEmg
     });
 
     db.ref(`sessions/${currentSessionId}`).push({
@@ -229,7 +219,7 @@ setInterval(() => {
 }, 1000);
 
 // ==========================================
-// 2. CLINICAL CANVAS & MEDICAL GRID ENGINE
+// 2. CANVAS & DYNAMIC AUTO-SCALE PLOTTER ENGINE
 // ==========================================
 function fit(c){const d=devicePixelRatio||1,r=c.getBoundingClientRect();c.width=r.width*d;c.height=r.height*d;c.getContext('2d').setTransform(d,0,0,d,0,0);return [r.width,r.height]}
 
@@ -244,18 +234,15 @@ const BIOAMP_GAIN = 2420.0;
 const ADC_REF_VOLTS = 5.0;
 const ADC_RESOLUTION = 1024.0;
 
-// LSB to Physical Units
-const ECG_VOLTS_PER_LSB = (ADC_REF_VOLTS / ADC_RESOLUTION) / AD8232_GAIN;
-const ECG_MV_PER_LSB = ECG_VOLTS_PER_LSB * 1000.0;                       // mV per LSB
-const EMG_UV_PER_LSB = ((ADC_REF_VOLTS / ADC_RESOLUTION) / BIOAMP_GAIN) * 1000000.0; // uV per LSB
+const ECG_MV_PER_LSB = ((ADC_REF_VOLTS / ADC_RESOLUTION) / AD8232_GAIN) * 1000.0;
+const EMG_UV_PER_LSB = ((ADC_REF_VOLTS / ADC_RESOLUTION) / BIOAMP_GAIN) * 1000000.0;
 
-let userGainMmPerMv = 10.0;   // Standard 10 mm/mV
-let userSpeedMmPerSec = 25.0; // Standard 25 mm/s
+let plotMode = 'auto'; // 'auto' (Serial Plotter) or 'fixed'
 
-// Buffer arrays
-let ecgMvBuffer = new Array(600).fill(0);
-let emgUvBuffer = new Array(600).fill(0);
-let emgRmsBuffer = new Array(600).fill(0);
+// Buffers (holding 300 raw samples)
+let ecgBuffer = new Array(300).fill(0);
+let emgBuffer = new Array(300).fill(0);
+let emgRmsBuffer = new Array(300).fill(0);
 let rawEmgWindow = [];
 
 function initCanvases() {
@@ -263,105 +250,77 @@ function initCanvases() {
   fit(emgC);
 }
 
-// Render Standard Medical ECG Grid
-function drawMedicalGrid(ctx, width, height, gridColorSmall, gridColorLarge) {
-  const pxPerMm = 3.78;
-  const smallGridPx = 1.0 * pxPerMm;
-  const largeGridPx = 5.0 * pxPerMm;
-
+// Background Grid
+function drawGrid(ctx, width, height, strokeColor) {
   ctx.lineWidth = 0.5;
-  ctx.strokeStyle = gridColorSmall;
+  ctx.strokeStyle = strokeColor;
   ctx.beginPath();
-  for (let x = 0; x < width; x += smallGridPx) { ctx.moveTo(x, 0); ctx.lineTo(x, height); }
-  for (let y = 0; y < height; y += smallGridPx) { ctx.moveTo(0, y); ctx.lineTo(width, y); }
-  ctx.stroke();
-
-  ctx.lineWidth = 1.2;
-  ctx.strokeStyle = gridColorLarge;
-  ctx.beginPath();
-  for (let x = 0; x < width; x += largeGridPx) { ctx.moveTo(x, 0); ctx.lineTo(x, height); }
-  for (let y = 0; y < height; y += largeGridPx) { ctx.moveTo(0, y); ctx.lineTo(width, y); }
+  for (let x = 0; x < width; x += 25) { ctx.moveTo(x, 0); ctx.lineTo(x, height); }
+  for (let y = 0; y < height; y += 25) { ctx.moveTo(0, y); ctx.lineTo(width, y); }
   ctx.stroke();
 }
 
-// Draw 1 mV Standard Calibration Mark
-function draw1MvCalibrationPulse(ctx, startX, centerY, gainMm) {
-  const pxPerMm = 3.78;
-  const pulseHeightPx = 1.0 * gainMm * pxPerMm; // 1 mV high
-  const pulseWidthPx = 5.0 * pxPerMm;          // 200 ms wide
+// Dynamic Serial Plotter Line Drawer
+function drawPlotterLine(ctx, buffer, width, height, strokeColor, lineWidth, defaultMin, defaultMax) {
+  if (buffer.length === 0) return { min: 0, max: 0 };
 
-  ctx.lineWidth = 2.0;
-  ctx.strokeStyle = '#00E676';
+  let min = Math.min(...buffer);
+  let max = Math.max(...buffer);
+
+  // Prevent division by zero or amplifying tiny noise
+  if (plotMode === 'fixed' || (max - min < 30)) {
+    min = Math.min(min, defaultMin);
+    max = Math.max(max, defaultMax);
+  }
+
+  const range = (max - min) || 1;
+  const padding = range * 0.1;
+  const plotMin = min - padding;
+  const plotMax = max + padding;
+  const plotRange = plotMax - plotMin;
+
+  ctx.strokeStyle = strokeColor;
+  ctx.lineWidth = lineWidth;
   ctx.beginPath();
-  ctx.moveTo(startX, centerY);
-  ctx.lineTo(startX + 5, centerY);
-  ctx.lineTo(startX + 5, centerY - pulseHeightPx);
-  ctx.lineTo(startX + 5 + pulseWidthPx, centerY - pulseHeightPx);
-  ctx.lineTo(startX + 5 + pulseWidthPx, centerY);
-  ctx.lineTo(startX + 15 + pulseWidthPx, centerY);
+
+  buffer.forEach((v, i) => {
+    const x = (i / buffer.length) * width;
+    const y = height - ((v - plotMin) / plotRange) * height;
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  });
   ctx.stroke();
+
+  return { min: Math.round(min), max: Math.round(max) };
 }
 
 function renderOscilloscopes() {
-  const pxPerMm = 3.78;
-  const pxPerMv = userGainMmPerMv * pxPerMm;
-
-  // --- 1. RENDER CLINICAL ECG CANVAS ---
+  // --- 1. RENDER ECG CANVAS ---
   ecgX.fillStyle = '#040d1a'; 
   ecgX.fillRect(0, 0, EW, EH);
-  drawMedicalGrid(ecgX, EW, EH, '#0a2540', '#134e85');
+  drawGrid(ecgX, EW, EH, '#0a2540');
 
-  const ecgCenterY = EH / 2;
-  draw1MvCalibrationPulse(ecgX, 10, ecgCenterY, userGainMmPerMv);
+  const ecgStats = drawPlotterLine(ecgX, ecgBuffer, EW, EH, '#00E676', 2.0, -100, 200);
+  $('#ecgRangeLabel').textContent = `MIN: ${ecgStats.min} | MAX: ${ecgStats.max}`;
 
-  ecgX.strokeStyle = '#00E676'; 
-  ecgX.lineWidth = 2.0; 
-  ecgX.beginPath();
-
-  ecgMvBuffer.forEach((mvVal, i) => {
-    const x = (i / ecgMvBuffer.length) * EW;
-    const y = ecgCenterY - (mvVal * pxPerMv);
-    if (i === 0) ecgX.moveTo(x, y); else ecgX.lineTo(x, y);
-  });
-  ecgX.stroke();
-
-  // --- 2. RENDER CLINICAL EMG CANVAS ---
+  // --- 2. RENDER EMG CANVAS ---
   emgX.fillStyle = '#0f071a'; 
   emgX.fillRect(0, 0, EW, EH);
-  drawMedicalGrid(emgX, EW, EH, '#281140', '#561a8a');
-
-  const emgCenterY = EH / 2;
-  const emgPxPerUv = (EH / 2) / 500.0;
+  drawGrid(emgX, EW, EH, '#281140');
 
   // Draw Raw EMG Spikes (White)
-  emgX.strokeStyle = 'rgba(255, 255, 255, 0.6)'; 
-  emgX.lineWidth = 1.0; 
-  emgX.beginPath();
-  emgUvBuffer.forEach((uvVal, i) => {
-    const x = (i / emgUvBuffer.length) * EW;
-    const y = emgCenterY - (uvVal * emgPxPerUv);
-    if (i === 0) emgX.moveTo(x, y); else emgX.lineTo(x, y);
-  });
-  emgX.stroke();
-
+  drawPlotterLine(emgX, emgBuffer, EW, EH, 'rgba(255, 255, 255, 0.5)', 1.0, -150, 250);
+  
   // Draw RMS Envelope (Purple)
-  emgX.strokeStyle = '#c084fc'; 
-  emgX.lineWidth = 2.5; 
-  emgX.beginPath();
-  emgRmsBuffer.forEach((rmsVal, i) => {
-    const x = (i / emgRmsBuffer.length) * EW;
-    const y = emgCenterY - (rmsVal * emgPxPerUv);
-    if (i === 0) emgX.moveTo(x, y); else emgX.lineTo(x, y);
-  });
-  emgX.stroke();
+  const emgStats = drawPlotterLine(emgX, emgRmsBuffer, EW, EH, '#c084fc', 2.5, 0, 250);
+  $('#emgRangeLabel').textContent = `RMS MIN: ${emgStats.min} | MAX: ${emgStats.max}`;
 
   requestAnimationFrame(renderOscilloscopes);
 }
 
 // ==========================================
-// 3. CLINICAL DIAGNOSTICS ENGINE
+// 3. DIAGNOSTICS ENGINE
 // ==========================================
-function evaluateHealthDiagnostics(bpm, spo2, ecgMv, emgRmsUv) {
+function evaluateHealthDiagnostics(bpm, spo2, rawEcg, rawEmg) {
   const badge = $('#healthBadge');
   const summary = $('#healthSummary');
   const adviceList = $('#healthAdvice');
@@ -373,48 +332,40 @@ function evaluateHealthDiagnostics(bpm, spo2, ecgMv, emgRmsUv) {
 
   if (bpm > 0) {
     if (bpm < 60) {
-      status = "SINUS BRADYCARDIA";
-      summaryText.push("Sinus Bradycardia detected (Heart Rate < 60 BPM).");
-      advice.push("Evaluate for asymptomatic athletic bradycardia vs AV block.");
+      status = "BRADYCARDIA";
+      summaryText.push("Heart rate is low (< 60 BPM).");
     } else if (bpm > 100) {
-      status = "SINUS TACHYCARDIA";
-      summaryText.push("Sinus Tachycardia detected (Elevated HR > 100 BPM).");
-      advice.push("Assess for physiological stress, fever, or sympathetic exertion.");
+      status = "TACHYCARDIA";
+      summaryText.push("Heart rate is elevated (> 100 BPM).");
     } else {
-      summaryText.push("Normocardia: Regular sinus rhythm (60–100 BPM).");
+      summaryText.push("Heart rate in normal range (60–100 BPM).");
     }
   } else {
-    summaryText.push("Awaiting optical PPG cardiac pulse capture.");
+    summaryText.push("Awaiting pulse sensor connection.");
   }
 
   if (spo2 > 0) {
     if (spo2 < 90) {
       status = "CRITICAL HYPOXIA";
-      summaryText.push("Severe Hypoxemia! Arterial oxygen saturation < 90%.");
-      advice.push("IMMEDIATE ACTION: Administer supplemental O2 and verify airway patency.");
+      summaryText.push("SpO2 critical (< 90%).");
     } else if (spo2 < 95) {
-      if (status !== "CRITICAL HYPOXIA") status = "MILD HYPOXIA";
-      summaryText.push("Mild Hypoxemia detected (SpO2 90–94%).");
-      advice.push("Monitor respiratory drive and oxygen therapy response.");
+      if (!status.includes("CRITICAL")) status = "MILD HYPOXIA";
+      summaryText.push("SpO2 mildly low (90–94%).");
     } else {
-      summaryText.push("Oxygenation optimal (SpO2 >= 95%).");
+      summaryText.push("Blood oxygen healthy (>= 95%).");
     }
   }
 
-  if (emgRmsUv > 120) {
-    summaryText.push("Significant neuromuscular exertion detected on EXG channel.");
-    advice.push("High motor unit activation. Observe for fatigue protocol thresholds.");
+  if (Math.abs(rawEmg) > 100) {
+    summaryText.push("Active muscle exertion detected on EMG channel.");
   }
 
   if (advice.length === 0) {
-    advice.push("All monitored physiological parameters are within normal clinical thresholds.");
+    advice.push("Signal baseline stable. Dynamic plotter tracking active.");
   }
 
-  if (status.includes("CRITICAL")) {
-    colorClass = "bg-red-500/20 text-red-400 border-red-500/40";
-  } else if (status.includes("TACHYCARDIA") || status.includes("BRADYCARDIA") || status.includes("HYPOXIA")) {
-    colorClass = "bg-amber-500/20 text-amber-400 border-amber-500/40";
-  }
+  if (status.includes("CRITICAL")) colorClass = "bg-red-500/20 text-red-400 border-red-500/40";
+  else if (status !== "NORMAL") colorClass = "bg-amber-500/20 text-amber-400 border-amber-500/40";
 
   badge.className = `mono text-xs px-3 py-1 rounded-full font-bold border ${colorClass}`;
   badge.textContent = status;
@@ -423,7 +374,7 @@ function evaluateHealthDiagnostics(bpm, spo2, ecgMv, emgRmsUv) {
 }
 
 // ==========================================
-// 4. TELEMETRY INGESTION WITH LEAD-OFF GUARD
+// 4. TELEMETRY INGESTION ENGINE
 // ==========================================
 function ingest(line) {
   line = line.trim();
@@ -433,56 +384,48 @@ function ingest(line) {
     const data = JSON.parse(line);
     const bpmVal  = data.bpm  || 0;
     const spo2Val = data.spo2 || 0;
-    let rawEcg    = data.ecg  !== undefined ? data.ecg : 0;
-    let rawEmg    = data.exg  !== undefined ? data.exg : 0;
+    const rawEcg  = data.ecg  !== undefined ? data.ecg : 0;
+    const rawEmg  = data.exg  !== undefined ? data.exg : 0;
 
-    // --- FLOATING PIN & LEAD-OFF DETECTION ---
-    // Saturated or floating pin ADC delta threshold
-    const SATURATION_THRESHOLD = 300; 
-
-    let ecgDisconnected = Math.abs(rawEcg) > SATURATION_THRESHOLD;
-    let emgDisconnected = Math.abs(rawEmg) > SATURATION_THRESHOLD;
-
-    if (ecgDisconnected) rawEcg = 0; // Clamp floating noise to flat baseline
-    if (emgDisconnected) rawEmg = 0; // Clamp floating noise to flat baseline
-
-    // Physical Unit Conversions
+    // Physical Unit Calculations for Metric Display
     const ecgMv = rawEcg * ECG_MV_PER_LSB;
     const emgUv = rawEmg * EMG_UV_PER_LSB;
 
-    // Calculate EMG RMS Envelope
-    rawEmgWindow.push(emgUv);
+    // Calculate EMG RMS Envelope (20-sample sliding window)
+    rawEmgWindow.push(Math.abs(rawEmg));
     if (rawEmgWindow.length > 20) rawEmgWindow.shift();
     const sumSquares = rawEmgWindow.reduce((acc, val) => acc + (val * val), 0);
-    const emgRmsUv = Math.sqrt(sumSquares / rawEmgWindow.length);
+    const emgRms = Math.sqrt(sumSquares / rawEmgWindow.length);
 
-    // Update UI Metric Cards
+    // Update UI Cards with RAW and Converted Values
     if (bpmVal > 0)  $('#bpm').textContent  = Math.round(bpmVal);
     if (spo2Val > 0) $('#spo2').textContent = `${Math.round(spo2Val)}%`;
-    $('#ecgMv').textContent = ecgDisconnected ? "N/C" : ecgMv.toFixed(2);
-    $('#emgUv').textContent = emgDisconnected ? "N/C" : Math.round(emgRmsUv);
+    $('#ecgRaw').textContent = rawEcg;
+    $('#ecgMv').textContent  = `${ecgMv.toFixed(2)} mV`;
+    $('#emgRaw').textContent = rawEmg;
+    $('#emgUv').textContent  = `${Math.round(emgUv)} µV`;
 
-    $('#lock').textContent = bpmVal > 0 ? '● PULSE DETECTED' : (ecgDisconnected ? '○ SENSOR DISCONNECTED' : '○ SEARCHING PULSE');
+    $('#lock').textContent = bpmVal > 0 ? '● PULSE DETECTED' : '○ SEARCHING PULSE';
     $('#lock').className = bpmVal > 0 ? 'mono text-[10px] mt-2 text-emerald-400' : 'mono text-[10px] mt-2 text-amber-400';
 
-    // Push Clamped Values to Plotter Buffers
-    ecgMvBuffer.push(ecgMv);
-    if (ecgMvBuffer.length > 600) ecgMvBuffer.shift();
+    // Push Directly to Plotter Buffers (No artificial truncation)
+    ecgBuffer.push(rawEcg);
+    if (ecgBuffer.length > 300) ecgBuffer.shift();
 
-    emgUvBuffer.push(emgUv);
-    if (emgUvBuffer.length > 600) emgUvBuffer.shift();
+    emgBuffer.push(rawEmg);
+    if (emgBuffer.length > 300) emgBuffer.shift();
 
-    emgRmsBuffer.push(emgRmsUv);
-    if (emgRmsBuffer.length > 600) emgRmsBuffer.shift();
+    emgRmsBuffer.push(emgRms);
+    if (emgRmsBuffer.length > 300) emgRmsBuffer.shift();
 
-    evaluateHealthDiagnostics(bpmVal, spo2Val, ecgMv, emgRmsUv);
-    dbBuffer.push({ ts: Date.now(), bpm: bpmVal, spo2: spo2Val, ecgMv, emgUv, emgRmsUv });
+    evaluateHealthDiagnostics(bpmVal, spo2Val, rawEcg, rawEmg);
+    dbBuffer.push({ ts: Date.now(), bpm: bpmVal, spo2: spo2Val, rawEcg, rawEmg });
 
   } catch (e) {}
 }
 
 // ==========================================
-// 5. WEBSOCKET CONTROLLER (mDNS & IP Support)
+// 5. WEBSOCKET CONTROLLER
 // ==========================================
 let ws = null;
 let isWsConnected = false;
@@ -494,11 +437,8 @@ function connectWebSocket() {
 
   let wsUrl = host;
   if (!wsUrl.startsWith('ws://') && !wsUrl.startsWith('wss://')) {
-    if (!wsUrl.includes(':')) {
-      wsUrl = `ws://${wsUrl}:81`;
-    } else {
-      wsUrl = `ws://${wsUrl}`;
-    }
+    if (!wsUrl.includes(':')) wsUrl = `ws://${wsUrl}:81`;
+    else wsUrl = `ws://${wsUrl}`;
   }
 
   addLog(`Connecting to Gateway: ${wsUrl}...`);
@@ -517,7 +457,7 @@ function connectWebSocket() {
     ws.onmessage = (event) => ingest(event.data);
 
     ws.onerror = (err) => {
-      addLog(`[WebSocket Error] Failed to connect to ${wsUrl}. Verify Wi-Fi connection.`);
+      addLog(`[WebSocket Error] Connection failed to ${wsUrl}.`);
     };
 
     ws.onclose = () => {
@@ -532,7 +472,7 @@ function connectWebSocket() {
   }
 }
 
-// Direct Web Serial / Bluetooth fallback
+// Direct Web Serial / Bluetooth
 async function connectBluetoothSerial() {
   try {
     if (!('serial' in navigator)) throw new Error('Web Serial unsupported on this browser.');
@@ -559,30 +499,24 @@ async function connectBluetoothSerial() {
 }
 
 // ==========================================
-// 6. INITIALIZATION & STORAGE CONTROLS
+// 6. INITIALIZATION & CONTROLS
 // ==========================================
 window.addEventListener('DOMContentLoaded', () => {
   initCanvases();
   renderOscilloscopes();
 
   const ipInput = $('#wsIp');
-  
-  // 1. Load saved host from browser memory or default to vitalpal.local
   const savedHost = localStorage.getItem('esp32_host') || 'vitalpal.local';
   if (ipInput) ipInput.value = savedHost;
 
-  // 2. Remember host whenever edited
   if (ipInput) {
     ipInput.addEventListener('change', () => {
       localStorage.setItem('esp32_host', ipInput.value.trim());
     });
   }
 
-  // 3. Auto-connect on page load
   setTimeout(() => {
-    if (ipInput && ipInput.value.trim()) {
-      connectWebSocket();
-    }
+    if (ipInput && ipInput.value.trim()) connectWebSocket();
   }, 500);
 
   $('#wsConnectBtn').addEventListener('click', () => {
@@ -591,17 +525,12 @@ window.addEventListener('DOMContentLoaded', () => {
 
   $('#btBtn').addEventListener('click', connectBluetoothSerial);
 
-  $('#gainSelect').addEventListener('change', (e) => {
-    userGainMmPerMv = parseFloat(e.target.value);
-    $('#ecgScaleLabel').textContent = `${userSpeedMmPerSec} mm/s | ${userGainMmPerMv} mm/mV`;
+  $('#scaleSelect').addEventListener('change', (e) => {
+    plotMode = e.target.value;
+    addLog(`[Plotter Mode] Switched to ${plotMode.toUpperCase()} mode.`);
   });
 
-  $('#speedSelect').addEventListener('change', (e) => {
-    userSpeedMmPerSec = parseFloat(e.target.value);
-    $('#ecgScaleLabel').textContent = `${userSpeedMmPerSec} mm/s | ${userGainMmPerMv} mm/mV`;
-  });
-
-  addLog("[System] Clinical Telemetry Dashboard initialized.");
+  addLog("[System] Serial Plotter Dashboard initialized.");
 });
 
 window.addEventListener('resize', initCanvases);
