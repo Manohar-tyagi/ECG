@@ -55,8 +55,8 @@ body{background:var(--bg);color:var(--ink);font-family:'Space Grotesk',system-ui
  <!-- 1. WEBSOCKET & CLINICAL CONTROLS -->
  <div class="panel mb-4 flex flex-wrap items-center justify-between gap-3 border-emerald-500/40">
   <div class="flex flex-wrap items-center gap-2 w-full lg:w-auto">
-   <span class="mono text-xs font-bold text-slate-400">ESP32 IP:</span>
-   <input id="wsIp" type="text" placeholder="192.168.43.150" class="panel px-3 py-1.5 text-xs mono w-36 text-slate-100 bg-slate-900 border border-slate-700">
+   <span class="mono text-xs font-bold text-slate-400">ESP32 Address:</span>
+   <input id="wsIp" type="text" value="vitalpal.local" class="panel px-3 py-1.5 text-xs mono w-40 text-slate-100 bg-slate-900 border border-slate-700">
    <button id="wsConnectBtn" class="cta py-1.5 px-4 text-xs">Connect WebSocket (100 Hz)</button>
   </div>
   
@@ -237,8 +237,6 @@ const ecgC = $('#ecgCanvas'), ecgX = ecgC.getContext('2d');
 const emgC = $('#emgCanvas'), emgX = emgC.getContext('2d');
 
 let EW=300, EH=250;
-let ecgSweepX = 0;
-let emgSweepX = 0;
 
 // Conversion Constants
 const AD8232_GAIN = 1100.0;
@@ -247,11 +245,11 @@ const ADC_REF_VOLTS = 5.0;
 const ADC_RESOLUTION = 1024.0;
 
 // LSB to Physical Units
-const ECG_VOLTS_PER_LSB = (ADC_REF_VOLTS / ADC_RESOLUTION) / AD8232_GAIN; // Volts
-const ECG_MV_PER_LSB = ECG_VOLTS_PER_LSB * 1000.0;                      // mV per LSB
+const ECG_VOLTS_PER_LSB = (ADC_REF_VOLTS / ADC_RESOLUTION) / AD8232_GAIN;
+const ECG_MV_PER_LSB = ECG_VOLTS_PER_LSB * 1000.0;                       // mV per LSB
 const EMG_UV_PER_LSB = ((ADC_REF_VOLTS / ADC_RESOLUTION) / BIOAMP_GAIN) * 1000000.0; // uV per LSB
 
-let userGainMmPerMv = 10.0; // Standard 10 mm/mV
+let userGainMmPerMv = 10.0;   // Standard 10 mm/mV
 let userSpeedMmPerSec = 25.0; // Standard 25 mm/s
 
 // Buffer arrays
@@ -265,9 +263,9 @@ function initCanvases() {
   fit(emgC);
 }
 
-// Render Standard Medical ECG Pink/Green Grid
+// Render Standard Medical ECG Grid
 function drawMedicalGrid(ctx, width, height, gridColorSmall, gridColorLarge) {
-  const pxPerMm = 3.78; // Standard 96 DPI screen approximation
+  const pxPerMm = 3.78;
   const smallGridPx = 1.0 * pxPerMm;
   const largeGridPx = 5.0 * pxPerMm;
 
@@ -290,7 +288,7 @@ function drawMedicalGrid(ctx, width, height, gridColorSmall, gridColorLarge) {
 function draw1MvCalibrationPulse(ctx, startX, centerY, gainMm) {
   const pxPerMm = 3.78;
   const pulseHeightPx = 1.0 * gainMm * pxPerMm; // 1 mV high
-  const pulseWidthPx = 5.0 * pxPerMm;          // 200 ms wide (1 large box)
+  const pulseWidthPx = 5.0 * pxPerMm;          // 200 ms wide
 
   ctx.lineWidth = 2.0;
   ctx.strokeStyle = '#00E676';
@@ -333,7 +331,7 @@ function renderOscilloscopes() {
   drawMedicalGrid(emgX, EW, EH, '#281140', '#561a8a');
 
   const emgCenterY = EH / 2;
-  const emgPxPerUv = (EH / 2) / 500.0; // Scale +/- 500 uV to canvas height
+  const emgPxPerUv = (EH / 2) / 500.0;
 
   // Draw Raw EMG Spikes (White)
   emgX.strokeStyle = 'rgba(255, 255, 255, 0.6)'; 
@@ -425,7 +423,7 @@ function evaluateHealthDiagnostics(bpm, spo2, ecgMv, emgRmsUv) {
 }
 
 // ==========================================
-// 4. TELEMETRY INGESTION & RMS ENGINE
+// 4. TELEMETRY INGESTION ENGINE
 // ==========================================
 function ingest(line) {
   line = line.trim();
@@ -438,17 +436,14 @@ function ingest(line) {
     const rawEcg  = data.ecg  !== undefined ? data.ecg : 0;
     const rawEmg  = data.exg  !== undefined ? data.exg : 0;
 
-    // Convert raw ADC offsets to physical clinical units
     const ecgMv = rawEcg * ECG_MV_PER_LSB;
     const emgUv = rawEmg * EMG_UV_PER_LSB;
 
-    // Compute EMG RMS Envelope (50-sample sliding window)
     rawEmgWindow.push(emgUv);
     if (rawEmgWindow.length > 20) rawEmgWindow.shift();
     const sumSquares = rawEmgWindow.reduce((acc, val) => acc + (val * val), 0);
     const emgRmsUv = Math.sqrt(sumSquares / rawEmgWindow.length);
 
-    // Update UI Cards
     if (bpmVal > 0)  $('#bpm').textContent  = Math.round(bpmVal);
     if (spo2Val > 0) $('#spo2').textContent = `${Math.round(spo2Val)}%`;
     $('#ecgMv').textContent = ecgMv.toFixed(2);
@@ -457,7 +452,6 @@ function ingest(line) {
     $('#lock').textContent = bpmVal > 0 ? '● PULSE DETECTED' : '○ SEARCHING PULSE';
     $('#lock').className = bpmVal > 0 ? 'mono text-[10px] mt-2 text-emerald-400' : 'mono text-[10px] mt-2 text-amber-400';
 
-    // Push to Plotter Buffers
     ecgMvBuffer.push(ecgMv);
     if (ecgMvBuffer.length > 600) ecgMvBuffer.shift();
 
@@ -474,21 +468,26 @@ function ingest(line) {
 }
 
 // ==========================================
-// 5. WEBSOCKET CONTROLLER
+// 5. WEBSOCKET CONTROLLER (mDNS & IP Support)
 // ==========================================
 let ws = null;
 let isWsConnected = false;
 
 function connectWebSocket() {
   const ipInput = $('#wsIp');
-  let ip = ipInput ? ipInput.value.trim() : '';
-  if (!ip) {
-    alert("Please enter your ESP32 IP address from the Serial Monitor.");
-    return;
+  let host = ipInput ? ipInput.value.trim() : 'vitalpal.local';
+  if (!host) host = 'vitalpal.local';
+
+  let wsUrl = host;
+  if (!wsUrl.startsWith('ws://') && !wsUrl.startsWith('wss://')) {
+    if (!wsUrl.includes(':')) {
+      wsUrl = `ws://${wsUrl}:81`;
+    } else {
+      wsUrl = `ws://${wsUrl}`;
+    }
   }
 
-  let wsUrl = ip.startsWith('ws://') || ip.startsWith('wss://') ? ip : `ws://${ip}:81`;
-  addLog(`Connecting to Clinical Gateway: ${wsUrl}...`);
+  addLog(`Connecting to Gateway: ${wsUrl}...`);
 
   try {
     ws = new WebSocket(wsUrl);
@@ -504,7 +503,7 @@ function connectWebSocket() {
     ws.onmessage = (event) => ingest(event.data);
 
     ws.onerror = (err) => {
-      addLog(`[WebSocket Error] Check ESP32 IP address & Wi-Fi hotspot.`);
+      addLog(`[WebSocket Error] Failed to connect to ${wsUrl}. Verify Wi-Fi connection.`);
     };
 
     ws.onclose = () => {
@@ -520,11 +519,31 @@ function connectWebSocket() {
 }
 
 // ==========================================
-// 6. INITIALIZATION & CONTROLS
+// 6. INITIALIZATION & STORAGE CONTROLS
 // ==========================================
 window.addEventListener('DOMContentLoaded', () => {
   initCanvases();
   renderOscilloscopes();
+
+  const ipInput = $('#wsIp');
+  
+  // 1. Load saved host from browser memory or default to vitalpal.local
+  const savedHost = localStorage.getItem('esp32_host') || 'vitalpal.local';
+  if (ipInput) ipInput.value = savedHost;
+
+  // 2. Remember host whenever edited
+  if (ipInput) {
+    ipInput.addEventListener('change', () => {
+      localStorage.setItem('esp32_host', ipInput.value.trim());
+    });
+  }
+
+  // 3. Auto-connect on page load
+  setTimeout(() => {
+    if (ipInput && ipInput.value.trim()) {
+      connectWebSocket();
+    }
+  }, 500);
 
   $('#wsConnectBtn').addEventListener('click', () => {
     if (isWsConnected) { if (ws) ws.close(); } else { connectWebSocket(); }
