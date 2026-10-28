@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>VITAL-PAL — High-Precision Serial Plotter</title>
+<title>VITAL-PAL — Telemetry Monitor & Serial Plotter</title>
 <script src="https://cdn.tailwindcss.com/3.4.17"></script>
 <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
 
@@ -45,7 +45,7 @@ body{background:var(--bg);color:var(--ink);font-family:'Space Grotesk',system-ui
 <section id="top" class="relative px-4 pt-28 pb-4 max-w-6xl mx-auto">
  <div class="relative text-center">
   <h1 class="display text-[12vw] md:text-[6.5rem] leading-none text-emerald-400">SERIAL PLOTTER ENGINE</h1>
-  <p class="mx-auto mt-2 max-w-2xl text-sm md:text-base text-slate-400">High-precision biopotential oscilloscope featuring dynamic dual-axis numerical calibration.</p>
+  <p class="mx-auto mt-2 max-w-2xl text-sm md:text-base text-slate-400">High-resolution single-trace biopotential plotter with real-time X/Y numerical axis calibration.</p>
  </div>
 </section>
 
@@ -87,10 +87,10 @@ body{background:var(--bg);color:var(--ink);font-family:'Space Grotesk',system-ui
    <div class="mono text-[10px] mt-2 text-emerald-400">AD8232 (PIN A0)</div>
   </div>
 
-  <div class="panel border-l-4" style="border-color:#a855f7">
+  <div class="panel border-l-4" style="border-color:#f59e0b">
    <div class="mono text-xs text-slate-400">EMG VALUE (RAW / µV)</div>
-   <div class="flex items-baseline gap-2 mt-1"><span id="emgRaw" class="display text-4xl md:text-5xl text-purple-400">0</span><span id="emgUv" class="mono text-xs text-slate-400">0 µV</span></div>
-   <div class="mono text-[10px] mt-2 text-purple-400">BIOAMP EXG (PIN A1)</div>
+   <div class="flex items-baseline gap-2 mt-1"><span id="emgRaw" class="display text-4xl md:text-5xl text-amber-400">0</span><span id="emgUv" class="mono text-xs text-slate-400">0 µV</span></div>
+   <div class="mono text-[10px] mt-2 text-amber-400">BIOAMP EXG (PIN A1)</div>
   </div>
  </div>
 
@@ -116,32 +116,32 @@ body{background:var(--bg);color:var(--ink);font-family:'Space Grotesk',system-ui
   </div>
  </div>
 
- <!-- OSCILLOSCOPES WITH FULL DUAL-AXIS NUMERICAL MARGINS -->
+ <!-- OSCILLOSCOPES WITH HIGH-MAGNIFICATION SERIAL PLOTTER -->
  <div class="grid lg:grid-cols-2 gap-5 mb-6">
   
   <!-- ECG Canvas -->
   <div class="panel bg-slate-950 text-white">
    <div class="mono text-xs flex justify-between items-center mb-2">
-    <span class="text-emerald-400 font-bold">ECG WAVEFORM</span>
+    <span class="text-emerald-400 font-bold">ECG WAVEFORM {"ecg"}</span>
     <span id="ecgHeaderRange" class="text-slate-400">MIN: 0 | MAX: 0</span>
    </div>
    <canvas id="ecgCanvas" class="w-full" style="height:260px; background:#040d1a; border-radius:0.75rem"></canvas>
    <div class="mono text-[10px] text-slate-400 mt-2 flex justify-between">
-    <span>GREEN: RAW ECG SIGNAL</span>
-    <span>100 Hz REAL-TIME STREAM</span>
+    <span>GREEN: RAW ECG SIGNAL TRACE</span>
+    <span>70 SAMPLES WINDOW</span>
    </div>
   </div>
 
   <!-- EMG Canvas -->
   <div class="panel bg-slate-950 text-white">
    <div class="mono text-xs flex justify-between items-center mb-2">
-    <span class="text-purple-400 font-bold">EMG WAVEFORM (BIPOLAR AC PACKET)</span>
-    <span id="emgHeaderRange" class="text-purple-300 font-bold">RANGE: -0 to +0</span>
+    <span class="text-amber-400 font-bold">EMG WAVEFORM {"exg"}</span>
+    <span id="emgHeaderRange" class="text-amber-300 font-bold">MIN: 0 | MAX: 0</span>
    </div>
-   <canvas id="emgCanvas" class="w-full" style="height:260px; background:#0f071a; border-radius:0.75rem"></canvas>
+   <canvas id="emgCanvas" class="w-full" style="height:260px; background:#0d121f; border-radius:0.75rem"></canvas>
    <div class="mono text-[10px] text-slate-400 mt-2 flex justify-between">
-    <span>BIPOLAR AC: SYMMETRIC (+) AND (-) SPIKES</span>
-    <span>ZERO-CENTERED BASELINE</span>
+    <span>AMBER: RAW EMG SINGLE LINE TRACE</span>
+    <span>DYNAMIC AUTO-SCALE ZOOM</span>
    </div>
   </div>
 
@@ -212,7 +212,7 @@ setInterval(() => {
 }, 1000);
 
 // ==========================================
-// 2. CANVAS & PRECISION SERIAL PLOTTER ENGINE
+// 2. HIGH-ACCURACY SERIAL PLOTTER ENGINE
 // ==========================================
 function fit(c){const d=devicePixelRatio||1,r=c.getBoundingClientRect();c.width=r.width*d;c.height=r.height*d;c.getContext('2d').setTransform(d,0,0,d,0,0);return [r.width,r.height]}
 
@@ -233,8 +233,8 @@ const EMG_UV_PER_LSB = ((ADC_REF_VOLTS / ADC_RESOLUTION) / BIOAMP_GAIN) * 100000
 // Global Sample Index Counter for X-Axis Ticks
 let globalSampleCount = 0;
 
-// Buffers (200 samples for high visual fidelity)
-const BUFFER_SIZE = 200;
+// 70 samples visible window for expanded single-trace zoom (Image 2 style)
+const BUFFER_SIZE = 70;
 let ecgBuffer = new Array(BUFFER_SIZE).fill(0);
 let emgRawBuffer = new Array(BUFFER_SIZE).fill(0);
 
@@ -243,39 +243,35 @@ function initCanvases() {
   fit(emgC);
 }
 
-// Draw Precision Plotter with Y-Axis (Left) and X-Axis (Bottom) Ticks
-function drawSerialPlotter(ctx, buffer, width, height, strokeColor, isEcg = true) {
+// Draw Precision Single-Line Serial Plotter with Numerical Y and X Grid Ticks
+function drawSerialPlotter(ctx, buffer, width, height, strokeColor) {
   if (!buffer || buffer.length === 0) return;
 
-  const marginLeft = 50;
+  const marginLeft = 55;
   const marginBottom = 25;
-  const marginTop = 12;
-  const marginRight = 10;
+  const marginTop = 15;
+  const marginRight = 15;
 
   const plotW = width - marginLeft - marginRight;
   const plotH = height - marginTop - marginBottom;
 
-  let minVal, maxVal;
+  let minVal = Math.min(...buffer);
+  let maxVal = Math.max(...buffer);
 
-  if (isEcg) {
-    minVal = Math.min(...buffer);
-    maxVal = Math.max(...buffer);
-    if (maxVal - minVal < 2) { minVal -= 1; maxVal += 1; }
-    const span = maxVal - minVal;
-    minVal -= span * 0.1;
-    maxVal += span * 0.1;
-  } else {
-    // EMG Bipolar Symmetric Burst Mode
-    const peak = Math.max(...buffer.map(v => Math.abs(v)), 20);
-    minVal = -peak * 1.15;
-    maxVal = peak * 1.15;
+  if (maxVal - minVal < 10) {
+    const mid = (maxVal + minVal) / 2;
+    minVal = mid - 10;
+    maxVal = mid + 10;
   }
 
-  const range = maxVal - minVal || 1;
+  const span = maxVal - minVal;
+  const plotMin = minVal - span * 0.1;
+  const plotMax = maxVal + span * 0.1;
+  const plotRange = plotMax - plotMin || 1;
 
   // --- 1. DRAW GRID & AXIS LABELS ---
   ctx.lineWidth = 0.5;
-  ctx.strokeStyle = isEcg ? 'rgba(10, 37, 64, 0.6)' : 'rgba(40, 17, 64, 0.6)';
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
   ctx.fillStyle = '#94a3b8';
   ctx.font = "10px 'JetBrains Mono', monospace";
 
@@ -284,7 +280,7 @@ function drawSerialPlotter(ctx, buffer, width, height, strokeColor, isEcg = true
   for (let i = 0; i <= ySteps; i++) {
     const ratio = i / ySteps;
     const yPx = marginTop + plotH - (ratio * plotH);
-    const val = minVal + ratio * range;
+    const val = minVal + ratio * span;
 
     // Gridline
     ctx.beginPath();
@@ -317,63 +313,19 @@ function drawSerialPlotter(ctx, buffer, width, height, strokeColor, isEcg = true
     ctx.fillText(sampleIdx.toString(), xPx, height - 6);
   }
 
-  // --- 2. DRAW CENTER DASHED BASELINE (FOR EMG) ---
-  if (!isEcg) {
-    const zeroY = marginTop + plotH - ((0 - minVal) / range) * plotH;
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
-    ctx.lineWidth = 1;
-    ctx.setLineDash([4, 4]);
-    ctx.beginPath();
-    ctx.moveTo(marginLeft, zeroY);
-    ctx.lineTo(marginLeft + plotW, zeroY);
-    ctx.stroke();
-    ctx.setLineDash([]);
-  }
-
-  // --- 3. DRAW SIGNAL WAVEFORM ---
+  // --- 2. DRAW SINGLE CLEAN CONTINUOUS WAVEFORM TRACE ---
   ctx.strokeStyle = strokeColor;
-  ctx.lineWidth = isEcg ? 2.0 : 1.5;
+  ctx.lineWidth = 2.2;
+  ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
 
-  if (isEcg) {
-    ctx.beginPath();
-    buffer.forEach((v, i) => {
-      const x = marginLeft + (i / (buffer.length - 1)) * plotW;
-      const y = marginTop + plotH - ((v - minVal) / range) * plotH;
-      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-    });
-    ctx.stroke();
-  } else {
-    // HIGH-DENSITY BIPOLAR AC BURST PACKET RENDERER (Image 1 Style)
-    const zeroY = marginTop + plotH - ((0 - minVal) / range) * plotH;
-    
-    // Draw Filled Burst Packet
-    ctx.fillStyle = 'rgba(192, 132, 252, 0.35)';
-    ctx.beginPath();
-    buffer.forEach((v, i) => {
-      const x = marginLeft + (i / (buffer.length - 1)) * plotW;
-      const topY = marginTop + plotH - ((Math.abs(v) - minVal) / range) * plotH;
-      if (i === 0) ctx.moveTo(x, topY); else ctx.lineTo(x, topY);
-    });
-    for (let i = buffer.length - 1; i >= 0; i--) {
-      const x = marginLeft + (i / (buffer.length - 1)) * plotW;
-      const botY = marginTop + plotH - ((-Math.abs(buffer[i]) - minVal) / range) * plotH;
-      ctx.lineTo(x, botY);
-    }
-    ctx.closePath();
-    ctx.fill();
-
-    // Draw Symmetrical AC Spikes
-    ctx.beginPath();
-    buffer.forEach((v, i) => {
-      const x = marginLeft + (i / (buffer.length - 1)) * plotW;
-      const amp = Math.abs(v);
-      const topY = marginTop + plotH - ((amp - minVal) / range) * plotH;
-      const botY = marginTop + plotH - ((-amp - minVal) / range) * plotH;
-      ctx.moveTo(x, topY);
-      ctx.lineTo(x, botY);
-    });
-    ctx.stroke();
-  }
+  ctx.beginPath();
+  buffer.forEach((v, i) => {
+    const x = marginLeft + (i / (buffer.length - 1)) * plotW;
+    const y = marginTop + plotH - ((v - plotMin) / plotRange) * plotH;
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  });
+  ctx.stroke();
 
   return { min: Math.round(minVal), max: Math.round(maxVal) };
 }
@@ -382,14 +334,14 @@ function renderOscilloscopes() {
   // --- 1. ECG CANVAS ---
   ecgX.fillStyle = '#040d1a'; 
   ecgX.fillRect(0, 0, EW, EH);
-  const ecgStats = drawSerialPlotter(ecgX, ecgBuffer, EW, EH, '#00E676', true);
+  const ecgStats = drawSerialPlotter(ecgX, ecgBuffer, EW, EH, '#00E676');
   if (ecgStats) $('#ecgHeaderRange').textContent = `MIN: ${ecgStats.min} | MAX: ${ecgStats.max}`;
 
-  // --- 2. EMG CANVAS ---
-  emgX.fillStyle = '#0f071a'; 
+  // --- 2. EMG CANVAS (SINGLE CLEAN AMBER LINE TRACE) ---
+  emgX.fillStyle = '#0d121f'; 
   emgX.fillRect(0, 0, EW, EH);
-  const emgStats = drawSerialPlotter(emgX, emgRawBuffer, EW, EH, '#c084fc', false);
-  if (emgStats) $('#emgHeaderRange').textContent = `RANGE: -${emgStats.max} to +${emgStats.max}`;
+  const emgStats = drawSerialPlotter(emgX, emgRawBuffer, EW, EH, '#f59e0b');
+  if (emgStats) $('#emgHeaderRange').textContent = `MIN: ${emgStats.min} | MAX: ${emgStats.max}`;
 
   requestAnimationFrame(renderOscilloscopes);
 }
