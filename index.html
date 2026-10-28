@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>VITAL-PAL — Telemetry Monitor & Serial Plotter</title>
+<title>VITAL-PAL — High-Precision Serial Plotter</title>
 <script src="https://cdn.tailwindcss.com/3.4.17"></script>
 <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
 
@@ -45,7 +45,7 @@ body{background:var(--bg);color:var(--ink);font-family:'Space Grotesk',system-ui
 <section id="top" class="relative px-4 pt-28 pb-4 max-w-6xl mx-auto">
  <div class="relative text-center">
   <h1 class="display text-[12vw] md:text-[6.5rem] leading-none text-emerald-400">SERIAL PLOTTER ENGINE</h1>
-  <p class="mx-auto mt-2 max-w-2xl text-sm md:text-base text-slate-400">Precision biopotential plotting engine with real-time Y-axis amplitude scale tracking.</p>
+  <p class="mx-auto mt-2 max-w-2xl text-sm md:text-base text-slate-400">High-precision biopotential oscilloscope featuring dynamic dual-axis numerical calibration.</p>
  </div>
 </section>
 
@@ -116,32 +116,32 @@ body{background:var(--bg);color:var(--ink);font-family:'Space Grotesk',system-ui
   </div>
  </div>
 
- <!-- OSCILLOSCOPES WITH Y-AXIS NUMERICAL MARGINS -->
+ <!-- OSCILLOSCOPES WITH FULL DUAL-AXIS NUMERICAL MARGINS -->
  <div class="grid lg:grid-cols-2 gap-5 mb-6">
   
   <!-- ECG Canvas -->
   <div class="panel bg-slate-950 text-white">
    <div class="mono text-xs flex justify-between items-center mb-2">
     <span class="text-emerald-400 font-bold">ECG WAVEFORM</span>
-    <span class="text-slate-400">REAL-TIME SCALE</span>
+    <span id="ecgHeaderRange" class="text-slate-400">MIN: 0 | MAX: 0</span>
    </div>
-   <canvas id="ecgCanvas" class="w-full" style="height:250px; background:#040d1a; border-radius:0.75rem"></canvas>
+   <canvas id="ecgCanvas" class="w-full" style="height:260px; background:#040d1a; border-radius:0.75rem"></canvas>
    <div class="mono text-[10px] text-slate-400 mt-2 flex justify-between">
     <span>GREEN: RAW ECG SIGNAL</span>
-    <span>LEFT MARGIN: Y-AXIS RANGE</span>
+    <span>100 Hz REAL-TIME STREAM</span>
    </div>
   </div>
 
   <!-- EMG Canvas -->
   <div class="panel bg-slate-950 text-white">
    <div class="mono text-xs flex justify-between items-center mb-2">
-    <span class="text-purple-400 font-bold">EMG MUSCLE WAVEFORM</span>
-    <span class="text-slate-400">SINGLE TRACE MODE</span>
+    <span class="text-purple-400 font-bold">EMG WAVEFORM (BIPOLAR AC PACKET)</span>
+    <span id="emgHeaderRange" class="text-purple-300 font-bold">RANGE: -0 to +0</span>
    </div>
-   <canvas id="emgCanvas" class="w-full" style="height:250px; background:#0f071a; border-radius:0.75rem"></canvas>
+   <canvas id="emgCanvas" class="w-full" style="height:260px; background:#0f071a; border-radius:0.75rem"></canvas>
    <div class="mono text-[10px] text-slate-400 mt-2 flex justify-between">
-    <span>PURPLE: RAW EMG SIGNAL</span>
-    <span>LEFT MARGIN: Y-AXIS RANGE</span>
+    <span>BIPOLAR AC: SYMMETRIC (+) AND (-) SPIKES</span>
+    <span>ZERO-CENTERED BASELINE</span>
    </div>
   </div>
 
@@ -212,14 +212,14 @@ setInterval(() => {
 }, 1000);
 
 // ==========================================
-// 2. CANVAS & Y-AXIS PLOTTER ENGINE
+// 2. CANVAS & PRECISION SERIAL PLOTTER ENGINE
 // ==========================================
 function fit(c){const d=devicePixelRatio||1,r=c.getBoundingClientRect();c.width=r.width*d;c.height=r.height*d;c.getContext('2d').setTransform(d,0,0,d,0,0);return [r.width,r.height]}
 
 const ecgC = $('#ecgCanvas'), ecgX = ecgC.getContext('2d');
 const emgC = $('#emgCanvas'), emgX = emgC.getContext('2d');
 
-let EW=300, EH=250;
+let EW=300, EH=260;
 
 // Conversion Constants
 const AD8232_GAIN = 1100.0;
@@ -230,93 +230,166 @@ const ADC_RESOLUTION = 1024.0;
 const ECG_MV_PER_LSB = ((ADC_REF_VOLTS / ADC_RESOLUTION) / AD8232_GAIN) * 1000.0;
 const EMG_UV_PER_LSB = ((ADC_REF_VOLTS / ADC_RESOLUTION) / BIOAMP_GAIN) * 1000000.0;
 
-// Buffers (300 samples)
-let ecgBuffer = new Array(300).fill(0);
-let emgBuffer = new Array(300).fill(0);
+// Global Sample Index Counter for X-Axis Ticks
+let globalSampleCount = 0;
+
+// Buffers (200 samples for high visual fidelity)
+const BUFFER_SIZE = 200;
+let ecgBuffer = new Array(BUFFER_SIZE).fill(0);
+let emgRawBuffer = new Array(BUFFER_SIZE).fill(0);
 
 function initCanvases() {
   [EW, EH] = fit(ecgC);
   fit(emgC);
 }
 
-function drawGrid(ctx, width, height, strokeColor) {
-  ctx.lineWidth = 0.5;
-  ctx.strokeStyle = strokeColor;
-  ctx.beginPath();
-  for (let x = 65; x < width; x += 25) { ctx.moveTo(x, 0); ctx.lineTo(x, height); }
-  for (let y = 0; y < height; y += 25) { ctx.moveTo(65, y); ctx.lineTo(width, y); }
-  ctx.stroke();
-}
-
-// Single Line Drawer with On-Canvas Y-Axis Numerical Labels
-function drawPlotterLineWithYAxis(ctx, buffer, width, height, strokeColor, lineWidth) {
+// Draw Precision Plotter with Y-Axis (Left) and X-Axis (Bottom) Ticks
+function drawSerialPlotter(ctx, buffer, width, height, strokeColor, isEcg = true) {
   if (!buffer || buffer.length === 0) return;
 
-  let min = Math.min(...buffer);
-  let max = Math.max(...buffer);
+  const marginLeft = 50;
+  const marginBottom = 25;
+  const marginTop = 12;
+  const marginRight = 10;
 
-  if (max === min) { max += 10; min -= 10; }
-  const range = max - min;
-  const padding = range * 0.15;
-  const plotMin = min - padding;
-  const plotMax = max + padding;
-  const plotRange = plotMax - plotMin;
+  const plotW = width - marginLeft - marginRight;
+  const plotH = height - marginTop - marginBottom;
 
-  const plotLeftMargin = 65;
-  const plotWidth = width - plotLeftMargin;
+  let minVal, maxVal;
 
-  // 1. Draw Signal Waveform Line
-  ctx.strokeStyle = strokeColor;
-  ctx.lineWidth = lineWidth;
-  ctx.beginPath();
+  if (isEcg) {
+    minVal = Math.min(...buffer);
+    maxVal = Math.max(...buffer);
+    if (maxVal - minVal < 2) { minVal -= 1; maxVal += 1; }
+    const span = maxVal - minVal;
+    minVal -= span * 0.1;
+    maxVal += span * 0.1;
+  } else {
+    // EMG Bipolar Symmetric Burst Mode
+    const peak = Math.max(...buffer.map(v => Math.abs(v)), 20);
+    minVal = -peak * 1.15;
+    maxVal = peak * 1.15;
+  }
 
-  buffer.forEach((v, i) => {
-    const x = plotLeftMargin + (i / buffer.length) * plotWidth;
-    const y = height - ((v - plotMin) / plotRange) * height;
-    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-  });
-  ctx.stroke();
+  const range = maxVal - minVal || 1;
 
-  // 2. Draw Y-Axis Margin Strip
-  ctx.fillStyle = "rgba(11, 15, 25, 0.9)";
-  ctx.fillRect(0, 0, plotLeftMargin, height);
-
-  ctx.strokeStyle = "rgba(255, 255, 255, 0.15)";
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(plotLeftMargin, 0);
-  ctx.lineTo(plotLeftMargin, height);
-  ctx.stroke();
-
-  // 3. Render Y-Axis Numerical Values (Max, Mid, Min)
-  ctx.fillStyle = "#94a3b8";
+  // --- 1. DRAW GRID & AXIS LABELS ---
+  ctx.lineWidth = 0.5;
+  ctx.strokeStyle = isEcg ? 'rgba(10, 37, 64, 0.6)' : 'rgba(40, 17, 64, 0.6)';
+  ctx.fillStyle = '#94a3b8';
   ctx.font = "10px 'JetBrains Mono', monospace";
-  ctx.textAlign = "left";
 
-  const midVal = Math.round((max + min) / 2);
+  // Y-Axis Ticks (5 Levels)
+  const ySteps = 4;
+  for (let i = 0; i <= ySteps; i++) {
+    const ratio = i / ySteps;
+    const yPx = marginTop + plotH - (ratio * plotH);
+    const val = minVal + ratio * range;
 
-  // Top Tick Value
-  ctx.fillText(`▲ ${Math.round(max)}`, 6, 16);
-  
-  // Middle Tick Value
-  ctx.fillText(`─ ${midVal}`, 6, height / 2 + 3);
-  
-  // Bottom Tick Value
-  ctx.fillText(`▼ ${Math.round(min)}`, 6, height - 10);
+    // Gridline
+    ctx.beginPath();
+    ctx.moveTo(marginLeft, yPx);
+    ctx.lineTo(marginLeft + plotW, yPx);
+    ctx.stroke();
+
+    // Numerical Tick Label
+    ctx.textAlign = "right";
+    const labelStr = Math.abs(val) >= 100 ? Math.round(val).toString() : val.toFixed(1);
+    ctx.fillText(labelStr, marginLeft - 6, yPx + 3);
+  }
+
+  // X-Axis Ticks (5 Sample Counters)
+  const xSteps = 4;
+  const startSample = Math.max(0, globalSampleCount - BUFFER_SIZE);
+  for (let i = 0; i <= xSteps; i++) {
+    const ratio = i / xSteps;
+    const xPx = marginLeft + ratio * plotW;
+    const sampleIdx = Math.round(startSample + ratio * BUFFER_SIZE);
+
+    // Vertical Gridline
+    ctx.beginPath();
+    ctx.moveTo(xPx, marginTop);
+    ctx.lineTo(xPx, marginTop + plotH);
+    ctx.stroke();
+
+    // X Label
+    ctx.textAlign = "center";
+    ctx.fillText(sampleIdx.toString(), xPx, height - 6);
+  }
+
+  // --- 2. DRAW CENTER DASHED BASELINE (FOR EMG) ---
+  if (!isEcg) {
+    const zeroY = marginTop + plotH - ((0 - minVal) / range) * plotH;
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.moveTo(marginLeft, zeroY);
+    ctx.lineTo(marginLeft + plotW, zeroY);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // --- 3. DRAW SIGNAL WAVEFORM ---
+  ctx.strokeStyle = strokeColor;
+  ctx.lineWidth = isEcg ? 2.0 : 1.5;
+
+  if (isEcg) {
+    ctx.beginPath();
+    buffer.forEach((v, i) => {
+      const x = marginLeft + (i / (buffer.length - 1)) * plotW;
+      const y = marginTop + plotH - ((v - minVal) / range) * plotH;
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+  } else {
+    // HIGH-DENSITY BIPOLAR AC BURST PACKET RENDERER (Image 1 Style)
+    const zeroY = marginTop + plotH - ((0 - minVal) / range) * plotH;
+    
+    // Draw Filled Burst Packet
+    ctx.fillStyle = 'rgba(192, 132, 252, 0.35)';
+    ctx.beginPath();
+    buffer.forEach((v, i) => {
+      const x = marginLeft + (i / (buffer.length - 1)) * plotW;
+      const topY = marginTop + plotH - ((Math.abs(v) - minVal) / range) * plotH;
+      if (i === 0) ctx.moveTo(x, topY); else ctx.lineTo(x, topY);
+    });
+    for (let i = buffer.length - 1; i >= 0; i--) {
+      const x = marginLeft + (i / (buffer.length - 1)) * plotW;
+      const botY = marginTop + plotH - ((-Math.abs(buffer[i]) - minVal) / range) * plotH;
+      ctx.lineTo(x, botY);
+    }
+    ctx.closePath();
+    ctx.fill();
+
+    // Draw Symmetrical AC Spikes
+    ctx.beginPath();
+    buffer.forEach((v, i) => {
+      const x = marginLeft + (i / (buffer.length - 1)) * plotW;
+      const amp = Math.abs(v);
+      const topY = marginTop + plotH - ((amp - minVal) / range) * plotH;
+      const botY = marginTop + plotH - ((-amp - minVal) / range) * plotH;
+      ctx.moveTo(x, topY);
+      ctx.lineTo(x, botY);
+    });
+    ctx.stroke();
+  }
+
+  return { min: Math.round(minVal), max: Math.round(maxVal) };
 }
 
 function renderOscilloscopes() {
-  // --- 1. RENDER ECG CANVAS ---
+  // --- 1. ECG CANVAS ---
   ecgX.fillStyle = '#040d1a'; 
   ecgX.fillRect(0, 0, EW, EH);
-  drawGrid(ecgX, EW, EH, '#0a2540');
-  drawPlotterLineWithYAxis(ecgX, ecgBuffer, EW, EH, '#00E676', 2.0);
+  const ecgStats = drawSerialPlotter(ecgX, ecgBuffer, EW, EH, '#00E676', true);
+  if (ecgStats) $('#ecgHeaderRange').textContent = `MIN: ${ecgStats.min} | MAX: ${ecgStats.max}`;
 
-  // --- 2. RENDER EMG CANVAS (STRICTLY SINGLE PURPLE TRACE) ---
+  // --- 2. EMG CANVAS ---
   emgX.fillStyle = '#0f071a'; 
   emgX.fillRect(0, 0, EW, EH);
-  drawGrid(emgX, EW, EH, '#281140');
-  drawPlotterLineWithYAxis(emgX, emgBuffer, EW, EH, '#c084fc', 2.0);
+  const emgStats = drawSerialPlotter(emgX, emgRawBuffer, EW, EH, '#c084fc', false);
+  if (emgStats) $('#emgHeaderRange').textContent = `RANGE: -${emgStats.max} to +${emgStats.max}`;
 
   requestAnimationFrame(renderOscilloscopes);
 }
@@ -391,6 +464,8 @@ function ingest(line) {
     const rawEcg  = data.ecg  !== undefined ? data.ecg : 0;
     const rawEmg  = data.exg  !== undefined ? data.exg : 0;
 
+    globalSampleCount++;
+
     const ecgMv = rawEcg * ECG_MV_PER_LSB;
     const emgUv = rawEmg * EMG_UV_PER_LSB;
 
@@ -405,10 +480,10 @@ function ingest(line) {
     $('#lock').className = bpmVal > 0 ? 'mono text-[10px] mt-2 text-emerald-400' : 'mono text-[10px] mt-2 text-amber-400';
 
     ecgBuffer.push(rawEcg);
-    if (ecgBuffer.length > 300) ecgBuffer.shift();
+    if (ecgBuffer.length > BUFFER_SIZE) ecgBuffer.shift();
 
-    emgBuffer.push(rawEmg);
-    if (emgBuffer.length > 300) emgBuffer.shift();
+    emgRawBuffer.push(rawEmg);
+    if (emgRawBuffer.length > BUFFER_SIZE) emgRawBuffer.shift();
 
     evaluateHealthDiagnostics(bpmVal, spo2Val, rawEcg, rawEmg);
     dbBuffer.push({ ts: Date.now(), bpm: bpmVal, spo2: spo2Val, rawEcg, rawEmg });
@@ -517,7 +592,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
   $('#btBtn').addEventListener('click', connectBluetoothSerial);
 
-  addLog("[System] Telemetry Dashboard initialized.");
+  addLog("[System] Precision Telemetry Plotter initialized.");
 });
 
 window.addEventListener('resize', initCanvases);
