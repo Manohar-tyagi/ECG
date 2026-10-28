@@ -170,12 +170,15 @@ function addLog(m) {
 }
 
 // ==========================================
-// 1. SAFE FIREBASE INITIALIZATION
+// 1. SAFE FIREBASE INITIALIZATION WITH FIFO
 // ==========================================
 let db = null;
 const currentSessionId = 'session_' + Date.now();
 let dbBuffer = [];
 let totalLoggedSamples = 0;
+
+// Maximum historical session limit to retain in Firebase before FIFO deletion
+const MAX_SESSIONS = 30;
 
 try {
   if (typeof firebase !== 'undefined') {
@@ -187,6 +190,30 @@ try {
   addLog("[Firebase] Running in local offline mode.");
 }
 
+// FIFO Storage Pruning Function
+function enforceFifoStorage() {
+  if (!db) return;
+
+  db.ref('sessions').once('value', (snapshot) => {
+    if (!snapshot.exists()) return;
+
+    const sessions = snapshot.val();
+    const sessionKeys = Object.keys(sessions); // Keys are chronological timestamps
+
+    if (sessionKeys.length > MAX_SESSIONS) {
+      const overflowCount = sessionKeys.length - MAX_SESSIONS;
+      const oldestKeysToDelete = sessionKeys.slice(0, overflowCount);
+
+      oldestKeysToDelete.forEach((keyToDelete) => {
+        db.ref(`sessions/${keyToDelete}`).remove()
+          .then(() => addLog(`[FIFO Cleanup] Pruned oldest session: ${keyToDelete}`))
+          .catch((err) => addLog(`[FIFO Error] ${err.message}`));
+      });
+    }
+  });
+}
+
+// 1-Second Batch Upload Loop
 setInterval(() => {
   if (db && dbBuffer.length > 0) {
     const batchToSend = [...dbBuffer];
@@ -195,6 +222,8 @@ setInterval(() => {
     $('#dbCounter').textContent = `${totalLoggedSamples} samples logged`;
 
     const latest = batchToSend[batchToSend.length - 1];
+
+    // 1. Update live snapshot node
     db.ref('live_telemetry').set({
       timestamp: Date.now(),
       bpm: latest.bpm,
@@ -203,16 +232,20 @@ setInterval(() => {
       emg: latest.rawEmg
     });
 
+    // 2. Append 100 Hz session batch
     db.ref(`sessions/${currentSessionId}`).push({
       batch_time: new Date().toISOString(),
       samples_count: batchToSend.length,
       readings: batchToSend
+    }).then(() => {
+      // 3. Trigger FIFO Pruning after write
+      enforceFifoStorage();
     }).catch(err => addLog(`[Firebase Error] ${err.message}`));
   }
 }, 1000);
 
 // ==========================================
-// 2. HIGH-ACCURACY VITAL-PAL
+// 2. HIGH-ACCURACY SERIAL PLOTTER ENGINE
 // ==========================================
 function fit(c){const d=devicePixelRatio||1,r=c.getBoundingClientRect();c.width=r.width*d;c.height=r.height*d;c.getContext('2d').setTransform(d,0,0,d,0,0);return [r.width,r.height]}
 
@@ -233,7 +266,7 @@ const EMG_UV_PER_LSB = ((ADC_REF_VOLTS / ADC_RESOLUTION) / BIOAMP_GAIN) * 100000
 // Global Sample Index Counter for X-Axis Ticks
 let globalSampleCount = 0;
 
-// 70 samples visible window for expanded single-trace zoom (Image 2 style)
+// 70-sample visible window for zoomed, un-cramped trace display
 const BUFFER_SIZE = 70;
 let ecgBuffer = new Array(BUFFER_SIZE).fill(0);
 let emgRawBuffer = new Array(BUFFER_SIZE).fill(0);
@@ -282,13 +315,13 @@ function drawSerialPlotter(ctx, buffer, width, height, strokeColor) {
     const yPx = marginTop + plotH - (ratio * plotH);
     const val = minVal + ratio * span;
 
-    // Gridline
+    // Horizontal Gridline
     ctx.beginPath();
     ctx.moveTo(marginLeft, yPx);
     ctx.lineTo(marginLeft + plotW, yPx);
     ctx.stroke();
 
-    // Numerical Tick Label
+    // Y Label
     ctx.textAlign = "right";
     const labelStr = Math.abs(val) >= 100 ? Math.round(val).toString() : val.toFixed(1);
     ctx.fillText(labelStr, marginLeft - 6, yPx + 3);
