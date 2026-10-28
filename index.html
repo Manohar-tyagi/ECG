@@ -100,13 +100,13 @@ body{background:var(--bg);color:var(--ink);font-family:'Space Grotesk',system-ui
 
   <div class="panel border-l-4" style="border-color:#10b981">
    <div class="mono text-xs text-slate-400">ECG AMPLITUDE</div>
-   <div class="flex items-baseline gap-2 mt-1"><span id="ecgMv" class="display text-4xl md:text-5xl text-emerald-400">0.00</span><span class="mono text-xs text-slate-400">mV</span></div>
+   <div class="flex items-baseline gap-2 mt-1"><span id="ecgMv" class="display text-4xl md:text-5xl text-emerald-400">N/C</span><span class="mono text-xs text-slate-400">mV</span></div>
    <div class="mono text-[10px] mt-2 text-emerald-400">AD8232 (LEAD II)</div>
   </div>
 
   <div class="panel border-l-4" style="border-color:#a855f7">
    <div class="mono text-xs text-slate-400">EMG RMS AMPLITUDE</div>
-   <div class="flex items-baseline gap-2 mt-1"><span id="emgUv" class="display text-4xl md:text-5xl text-purple-400">0</span><span class="mono text-xs text-slate-400">µV</span></div>
+   <div class="flex items-baseline gap-2 mt-1"><span id="emgUv" class="display text-4xl md:text-5xl text-purple-400">N/C</span><span class="mono text-xs text-slate-400">µV</span></div>
    <div class="mono text-[10px] mt-2 text-purple-400">BIOAMP EXG (MUSCLE EFFORT)</div>
   </div>
  </div>
@@ -423,7 +423,7 @@ function evaluateHealthDiagnostics(bpm, spo2, ecgMv, emgRmsUv) {
 }
 
 // ==========================================
-// 4. TELEMETRY INGESTION ENGINE
+// 4. TELEMETRY INGESTION WITH LEAD-OFF GUARD
 // ==========================================
 function ingest(line) {
   line = line.trim();
@@ -433,25 +433,39 @@ function ingest(line) {
     const data = JSON.parse(line);
     const bpmVal  = data.bpm  || 0;
     const spo2Val = data.spo2 || 0;
-    const rawEcg  = data.ecg  !== undefined ? data.ecg : 0;
-    const rawEmg  = data.exg  !== undefined ? data.exg : 0;
+    let rawEcg    = data.ecg  !== undefined ? data.ecg : 0;
+    let rawEmg    = data.exg  !== undefined ? data.exg : 0;
 
+    // --- FLOATING PIN & LEAD-OFF DETECTION ---
+    // Saturated or floating pin ADC delta threshold
+    const SATURATION_THRESHOLD = 300; 
+
+    let ecgDisconnected = Math.abs(rawEcg) > SATURATION_THRESHOLD;
+    let emgDisconnected = Math.abs(rawEmg) > SATURATION_THRESHOLD;
+
+    if (ecgDisconnected) rawEcg = 0; // Clamp floating noise to flat baseline
+    if (emgDisconnected) rawEmg = 0; // Clamp floating noise to flat baseline
+
+    // Physical Unit Conversions
     const ecgMv = rawEcg * ECG_MV_PER_LSB;
     const emgUv = rawEmg * EMG_UV_PER_LSB;
 
+    // Calculate EMG RMS Envelope
     rawEmgWindow.push(emgUv);
     if (rawEmgWindow.length > 20) rawEmgWindow.shift();
     const sumSquares = rawEmgWindow.reduce((acc, val) => acc + (val * val), 0);
     const emgRmsUv = Math.sqrt(sumSquares / rawEmgWindow.length);
 
+    // Update UI Metric Cards
     if (bpmVal > 0)  $('#bpm').textContent  = Math.round(bpmVal);
     if (spo2Val > 0) $('#spo2').textContent = `${Math.round(spo2Val)}%`;
-    $('#ecgMv').textContent = ecgMv.toFixed(2);
-    $('#emgUv').textContent = Math.round(emgRmsUv);
+    $('#ecgMv').textContent = ecgDisconnected ? "N/C" : ecgMv.toFixed(2);
+    $('#emgUv').textContent = emgDisconnected ? "N/C" : Math.round(emgRmsUv);
 
-    $('#lock').textContent = bpmVal > 0 ? '● PULSE DETECTED' : '○ SEARCHING PULSE';
+    $('#lock').textContent = bpmVal > 0 ? '● PULSE DETECTED' : (ecgDisconnected ? '○ SENSOR DISCONNECTED' : '○ SEARCHING PULSE');
     $('#lock').className = bpmVal > 0 ? 'mono text-[10px] mt-2 text-emerald-400' : 'mono text-[10px] mt-2 text-amber-400';
 
+    // Push Clamped Values to Plotter Buffers
     ecgMvBuffer.push(ecgMv);
     if (ecgMvBuffer.length > 600) ecgMvBuffer.shift();
 
@@ -518,6 +532,32 @@ function connectWebSocket() {
   }
 }
 
+// Direct Web Serial / Bluetooth fallback
+async function connectBluetoothSerial() {
+  try {
+    if (!('serial' in navigator)) throw new Error('Web Serial unsupported on this browser.');
+    const port = await navigator.serial.requestPort();
+    await port.open({ baudRate: 115200 });
+
+    addLog('Bluetooth / Serial connected at 115200 baud');
+    const dec = new TextDecoderStream();
+    port.readable.pipeTo(dec.writable);
+    const rd = dec.readable.getReader();
+    let acc = '';
+
+    for (;;) {
+      const { value, done } = await rd.read();
+      if (done) break;
+      acc += value;
+      const ls = acc.split('\n');
+      acc = ls.pop();
+      ls.forEach(ingest);
+    }
+  } catch (e) {
+    addLog('Stream Error: ' + (e.message || 'connection closed'));
+  }
+}
+
 // ==========================================
 // 6. INITIALIZATION & STORAGE CONTROLS
 // ==========================================
@@ -548,6 +588,8 @@ window.addEventListener('DOMContentLoaded', () => {
   $('#wsConnectBtn').addEventListener('click', () => {
     if (isWsConnected) { if (ws) ws.close(); } else { connectWebSocket(); }
   });
+
+  $('#btBtn').addEventListener('click', connectBluetoothSerial);
 
   $('#gainSelect').addEventListener('change', (e) => {
     userGainMmPerMv = parseFloat(e.target.value);
