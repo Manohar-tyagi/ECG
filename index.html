@@ -441,12 +441,8 @@ footer{height:90px}
     }
   }
 
-  // ==========================================
-  // 3. ENHANCED DASHBOARD CONNECTION LOGIC
-  // ==========================================
   function toggleWebSocket() {
     const b = document.getElementById('connectBtn');
-    const url = document.getElementById('wsUrl').value.trim();
 
     if (thingSpeakTimer) {
       stopThingSpeakFallback();
@@ -458,58 +454,37 @@ footer{height:90px}
 
     if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) {
       socket.close();
-      setConnectionStatus('Offline', 'slate');
-      b.textContent = 'Connect Wi-Fi';
-      b.className = 'btn btn-wifi';
       return;
     }
 
-    // Immediate Visual Feedback
-    setConnectionStatus('Connecting to ESP32...', 'indigo');
-    b.textContent = 'Connecting...';
-
+    const url = document.getElementById('wsUrl').value.trim();
     let wsFailed = false;
 
     try {
       socket = new WebSocket(url);
     } catch (err) {
-      console.warn("Direct WebSocket connection failed immediately:", err);
+      console.warn("Direct WebSocket blocked. Triggering cloud fallback...");
       startThingSpeakFallback();
       return;
     }
 
-    // Connection timeout safety net (5 seconds)
-    const connectionTimeout = setTimeout(() => {
-      if (socket && socket.readyState !== WebSocket.OPEN) {
-        console.warn("WebSocket timed out after 5s. Starting ThingSpeak fallback...");
-        wsFailed = true;
-        socket.close();
-        startThingSpeakFallback();
-      }
-    }, 5000);
-
     socket.onopen = () => {
-      clearTimeout(connectionTimeout);
       stopThingSpeakFallback();
       setConnectionStatus('Wi-Fi Connected (100 Hz)', 'emerald');
       b.textContent = 'Disconnect';
       b.className = 'btn live';
     };
 
-    socket.onmessage = (event) => { 
-      processTelemetryPacket(event.data); 
-    };
+    socket.onmessage = (event) => { processTelemetryPacket(event.data); };
 
     socket.onerror = (err) => {
-      clearTimeout(connectionTimeout);
-      console.warn("WebSocket Error detected. Falling back to Cloud stream...");
+      console.warn("WebSocket IP blocked by browser security. Falling back to Cloud stream...");
       wsFailed = true;
       if (socket) socket.close();
       startThingSpeakFallback();
     };
 
     socket.onclose = () => {
-      clearTimeout(connectionTimeout);
       if (!wsFailed && !thingSpeakTimer) {
         setConnectionStatus('Offline', 'slate');
         b.textContent = 'Connect Wi-Fi';
@@ -519,13 +494,11 @@ footer{height:90px}
   }
 
   async function toggleWebSerial() {
-    const sb = document.getElementById('serialBtn');
-
     if (!("serial" in navigator)) {
-      alert("❌ Web Serial/Bluetooth is NOT supported on this browser or mobile device.\n\nPlease open this webpage in Desktop Google Chrome or MS Edge.");
+      alert("Web Serial API is not supported in this browser. Please use Chrome or MS Edge.");
       return;
     }
-
+    const sb = document.getElementById('serialBtn');
     if (serialPort) {
       if (serialReader) await serialReader.cancel();
       await serialPort.close();
@@ -536,9 +509,7 @@ footer{height:90px}
       sb.className = 'btn btn-serial';
       return;
     }
-
     try {
-      setConnectionStatus('Select Port/Device...', 'indigo');
       serialPort = await navigator.serial.requestPort();
       await serialPort.open({ baudRate: 115200 });
 
@@ -563,12 +534,7 @@ footer{height:90px}
           if (line.startsWith('{') && line.endsWith('}')) processTelemetryPacket(line);
         }
       }
-    } catch (err) { 
-      console.error("Serial/BT Connection Cancelled/Failed:", err);
-      setConnectionStatus('Offline', 'slate');
-      sb.textContent = 'Pair Serial/BT';
-      sb.className = 'btn btn-serial';
-    }
+    } catch (err) { console.error("Serial/BT Error:", err); }
   }
 
   function setConnectionStatus(text, color) {
