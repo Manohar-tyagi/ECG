@@ -1,586 +1,546 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>VITAL-PAL — Telemetry Monitor & Serial Plotter</title>
-<script src="https://cdn.tailwindcss.com/3.4.17"></script>
-<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-
-<!-- Firebase Compatibility SDKs -->
-<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
-
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VITAL-PAL Clinical Triage & Telemetry Engine</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#0b0f19;--ink:#f1f5f0;--mint:#10B981;--neon:#00E676;--slate:#020617;--card:#131b2e;--muted:#94a3b8;
-box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
-html{scroll-behavior:smooth;scroll-padding-top:90px}
-body{background:var(--bg);color:var(--ink);font-family:'Space Grotesk',system-ui,sans-serif;overflow-x:hidden}
-.display{font-family:'Archivo Black','Arial Black',sans-serif;text-transform:uppercase;letter-spacing:-.02em}
-.mono{font-family:'JetBrains Mono',ui-monospace,monospace}
-.pill{background:#1e293b;color:#fff;border-radius:999px;padding:.5rem 1rem;font-size:.85rem;transition:.2s}
-.pill:hover{background:var(--mint)}
-.cta{background:var(--neon);color:#052e1a;font-weight:700;border-radius:999px;padding:.55rem 1.1rem;font-size:.85rem;box-shadow:0 0 0 0 rgba(0,230,118,.6);animation:glow 2.4s infinite;transition:.2s}
-.cta:hover{box-shadow:0 0 28px 6px rgba(0,230,118,.55);transform:translateY(-1px)}
-@keyframes glow{0%{box-shadow:0 0 0 0 rgba(0,230,118,.55)}70%{box-shadow:0 0 0 14px rgba(0,230,118,0)}100%{box-shadow:0 0 0 0 rgba(0,230,118,0)}}
-.panel{background:var(--card);border-radius:1.5rem;padding:1.25rem;box-shadow:0 10px 30px -14px rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.05)}
-.beat{animation:beat 1s infinite}
-@keyframes beat{50%{transform:scale(1.15)}}
+:root{--paper:#f6f6f2;--ink:#0b0e13;--mute:#5b6270;--green:#2fd67c;--green-d:#12a05a;--coral:#ef4455;--blue:#2f8cf0;--amber:#f59e0b;--line:rgba(11,14,19,.09);--beat:1s}
+*{box-sizing:border-box;margin:0}
+html{scroll-behavior:smooth}
+body{font-family:'Inter',system-ui,sans-serif;color:var(--ink);background:
+  radial-gradient(520px 420px at 0% 10%,rgba(47,214,124,.28),transparent 70%),
+  radial-gradient(620px 520px at 100% 40%,rgba(120,150,255,.16),transparent 70%),
+  radial-gradient(520px 360px at 38% 98%,rgba(255,170,110,.20),transparent 70%),var(--paper);
+  background-attachment:fixed;overflow-x:hidden}
+a{color:inherit;text-decoration:none}
+:focus-visible{outline:3px solid var(--green-d);outline-offset:3px}
+
+/* NAVIGATION */
+nav{position:fixed;z-index:20;top:16px;left:16px;right:16px;height:66px;padding:0 20px;display:flex;align-items:center;justify-content:space-between;background:#fff;border-radius:24px;box-shadow:0 10px 30px -12px rgba(11,14,19,.18)}
+.logo{display:flex;align-items:center;gap:14px;font-weight:900;letter-spacing:.01em}
+.logo i{width:22px;height:22px;border-radius:50%;background:var(--green);box-shadow:0 0 0 0 rgba(47,214,124,.6);animation:ping 2s infinite}
+@keyframes ping{to{box-shadow:0 0 0 12px transparent}}
+.links{display:flex;gap:6px}
+.pill{background:var(--ink);color:#fff;font-weight:700;font-size:.9rem;padding:9px 16px;border-radius:99px;transition:transform .2s,background .2s}
+.pill:hover{transform:translateY(-2px);background:#222a36}
+.cta{background:var(--green);color:var(--ink);font-weight:700;font-size:.9rem;padding:11px 18px;border-radius:99px;transition:transform .2s,filter .2s}
+.cta:hover{transform:translateY(-2px);filter:brightness(1.05)}
+
+/* CLEAN HERO SECTION (CARDS REMOVED) */
+.hero{position:relative;padding:160px 24px 80px;text-align:center;max-width:1100px;margin:0 auto}
+h1{font-size:clamp(56px,13.4vw,200px);line-height:.9;font-weight:900;letter-spacing:-.045em;animation:rise .9s cubic-bezier(.2,.8,.2,1) both}
+.tag{max-width:580px;margin:32px auto 0;font-size:1.2rem;line-height:1.55;color:var(--mute)}
+.wave{display:block;margin:28px auto 0;width:200px;overflow:visible}
+.wave path,.doodle path,.doodle line{fill:none;stroke:var(--green);stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+.wave path{stroke-width:4.5;stroke-dasharray:260;stroke-dashoffset:260;animation:draw 2.2s .5s ease-out forwards}
+@keyframes draw{to{stroke-dashoffset:0}}
+@keyframes rise{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none}}
+.doodle{position:absolute;width:70px;stroke:var(--green)}
+.d1{left:10%;top:180px;width:72px}.d2{right:12%;top:160px;width:90px}
+
+/* SENSOR SHOWCASE GRID */
+.sensor-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:20px;margin-top:40px}
+.sensor-card{background:#fff;border-radius:24px;padding:16px;box-shadow:0 14px 30px -16px rgba(11,14,19,.18);text-align:left;transition:transform .25s ease}
+.sensor-card:hover{transform:translateY(-4px)}
+.sensor-img-box{height:140px;border-radius:16px;overflow:hidden;background:var(--paper);display:flex;align-items:center;justify-content:center;padding:12px;margin-bottom:12px}
+.sensor-img-box img{max-width:100%;max-height:100%;object-fit:contain;filter:drop-shadow(0 4px 8px rgba(0,0,0,.08))}
+.sensor-card h4{font-size:1rem;font-weight:800;color:var(--ink);margin-bottom:2px}
+.sensor-card p{font-size:.78rem;color:var(--mute);line-height:1.4}
+.sensor-badge{display:inline-block;margin-top:8px;padding:3px 10px;border-radius:99px;font-size:.7rem;font-weight:700;background:rgba(47,214,124,.18);color:var(--green-d)}
+
+/* LIVE METRICS BAR */
+.vitals-bar{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:24px}
+.v-card{background:#fff;border-radius:20px;padding:16px 20px;box-shadow:0 10px 24px -12px rgba(11,14,19,.15);display:flex;flex-direction:column;justify-content:space-between}
+.v-card .label{font-size:.75rem;font-weight:700;color:var(--mute);text-transform:uppercase;letter-spacing:.04em;display:flex;justify-content:space-between;align-items:center}
+.v-card .val{font-size:2.4rem;font-weight:900;letter-spacing:-.03em;color:var(--ink);margin-top:4px;display:flex;align-items:baseline;gap:6px}
+.v-card .val small{font-size:.85rem;font-weight:700;color:var(--mute)}
+.heart{width:16px;height:16px;fill:var(--coral)}
+.heart.beating{animation:beat var(--beat) ease-in-out infinite}
+@keyframes beat{0%,100%{transform:scale(1)}12%{transform:scale(1.4)}24%{transform:scale(1)}36%{transform:scale(1.2)}50%{transform:scale(1)}}
+
+#connStatus{font-weight:800;font-size:1.1rem;display:flex;align-items:center;gap:8px;color:var(--mute)}
+#connStatus::before{content:"";width:10px;height:10px;border-radius:50%;background:currentColor;flex:none}
+#connStatus.emerald{color:var(--green-d)}#connStatus.indigo{color:#5b4fe0}
+#connStatus.emerald::before,#connStatus.indigo::before{animation:blink 1.1s infinite}
+@keyframes blink{50%{opacity:.25}}
+
+/* DASHBOARD SECTIONS */
+section.blk{max-width:1280px;margin:0 auto;padding:40px 24px 0}
+h2{font-size:clamp(1.8rem,4vw,3.2rem);font-weight:900;letter-spacing:-.04em;line-height:1}
+.lead{color:var(--mute);margin:10px 0 24px;max-width:540px;line-height:1.5}
+.card{background:#fff;border-radius:28px;padding:22px;box-shadow:0 18px 40px -22px rgba(11,14,19,.25)}
+.conn{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end}
+.field{display:flex;flex-direction:column;gap:6px}
+.field label{font-size:.78rem;font-weight:600;color:var(--mute)}
+input[type=text]{height:44px;padding:0 16px;border-radius:99px;border:1.5px solid var(--line);background:var(--paper);font:500 .88rem 'Inter',sans-serif;color:var(--ink);transition:border-color .2s,box-shadow .2s}
+input[type=text]:focus{outline:none;border-color:var(--green-d);box-shadow:0 0 0 4px rgba(47,214,124,.25)}
+#wsUrl{width:230px}#apiUrl{width:340px;max-width:100%}
+.btn{height:44px;padding:0 22px;border:0;border-radius:99px;font:700 .9rem 'Inter',sans-serif;cursor:pointer;transition:transform .2s,filter .2s}
+.btn:hover{transform:translateY(-2px)}.btn:active{transform:scale(.97)}
+.btn-wifi{background:var(--green);color:var(--ink)}
+.btn-serial{background:var(--ink);color:#fff}
+.btn.live{background:var(--coral);color:#fff}
+.grid2{display:grid;grid-template-columns:2fr 1fr;gap:22px;align-items:start}
+.scopes{display:grid;gap:22px}
+.scope-h{display:flex;align-items:center;gap:10px;font-weight:800;margin-bottom:14px}
+.scope-h i{width:10px;height:10px;border-radius:50%;background:var(--c);animation:pulse 1.6s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 var(--c)}100%{box-shadow:0 0 0 10px transparent}}
+.scope-h small{font-weight:500;color:var(--mute)}
+canvas{display:block;width:100%;height:170px;border-radius:18px;background:#fbfbf8;border:1px solid var(--line)}
+
+/* AI TRIAGE PANEL */
+.tri-h{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+.tri-h h3{font-size:1.25rem;font-weight:900;letter-spacing:-.02em}
+#triageBadge{background:var(--ink);color:#fff;font-size:.78rem;font-weight:700;padding:6px 14px;border-radius:99px;transition:background .3s}
+#triageBadge.proc{background:var(--amber);color:var(--ink);animation:blink 1s infinite}
+#triageBadge.done{background:var(--green);color:var(--ink)}
+#triageBadge.err{background:var(--coral)}
+#triageResult{min-height:260px;padding:18px;border-radius:20px;background:var(--paper);font-size:.88rem;line-height:1.55;color:#2a303b}
+.empty{color:var(--mute);padding:34px 4px;text-align:center}
+.res{display:grid;gap:14px;animation:rise .5s both}
+.k{display:block;font-size:.74rem;font-weight:700;color:var(--mute);margin-bottom:3px}
+.status{font-size:1.4rem;font-weight:900;letter-spacing:-.02em}
+.status.good{color:var(--green-d)}.status.bad{color:var(--coral)}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding-top:12px;border-top:1px solid var(--line)}
+.pair b{font-size:1.2rem;font-weight:900}
+.sec{padding-top:12px;border-top:1px solid var(--line)}.advice{color:var(--green-d);font-weight:600}
+.raw{font-family:ui-monospace,Menlo,monospace;white-space:pre-wrap;animation:rise .5s both}
+.err-msg{color:var(--coral);font-weight:600;animation:rise .4s both}
+.check{display:flex;align-items:center;gap:12px;margin:18px 0 12px;font-size:.85rem;font-weight:500;color:var(--mute);cursor:pointer;user-select:none}
+.check input{position:absolute;opacity:0}
+.sw{width:42px;height:24px;border-radius:99px;background:#d6d9de;position:relative;transition:background .25s;flex:none}
+.sw::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 2px 4px rgba(0,0,0,.2);transition:transform .25s cubic-bezier(.3,1.4,.5,1)}
+.check input:checked+.sw{background:var(--green)}.check input:checked+.sw::after{transform:translateX(18px)}
+.check input:focus-visible+.sw{outline:3px solid var(--green-d);outline-offset:3px}
+#triageBtn{width:100%;height:56px;border:0;border-radius:99px;background:var(--green);color:var(--ink);font:900 1rem 'Inter',sans-serif;cursor:pointer;box-shadow:0 14px 28px -14px var(--green-d);transition:transform .2s,background .2s}
+#triageBtn:hover{transform:translateY(-3px);background:var(--ink);color:#fff}
+#triageBtn:disabled{opacity:.6;cursor:wait;transform:none}
+footer{height:90px}
+
+@media(max-width:1000px){
+  .hero{padding:120px 20px 40px}
+  .grid2{grid-template-columns:1fr}.links{display:none}
+}
+@media(max-width:560px){#wsUrl{width:100%}.conn,.field{width:100%}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}.wave path{stroke-dashoffset:0}}
 </style>
 </head>
 <body>
 
-<!-- TOP NAVIGATION BAR -->
-<header class="fixed left-0 right-0 z-50 flex justify-center px-3" style="top:calc(env(safe-area-inset-top,0px) + 12px)">
- <div class="w-full max-w-5xl flex items-center justify-between gap-2 rounded-full px-3 py-2 backdrop-blur" style="background:rgba(19, 27, 46, 0.85);box-shadow:0 8px 30px -10px rgba(0,0,0,.5); border:1px solid rgba(255,255,255,0.1)">
-  <a href="#top" class="flex items-center gap-2 display text-lg pl-2"><span class="w-3 h-3 rounded-full" style="background:var(--neon);box-shadow:0 0 10px var(--neon)"></span>VITAL-PAL TELEMETRY</a>
-  <nav class="hidden md:flex gap-2">
-   <a class="pill" href="#top">Overview</a><a class="pill" href="#diagnostics">Diagnostics</a><a class="pill" href="#live">Live Stream</a>
-  </nav>
-  <button id="btBtn" class="cta">Connect Serial / BT</button>
- </div>
+<nav>
+  <a class="logo" href="#home"><i></i>VITAL-PAL</a>
+  <div class="links">
+    <a class="pill" href="#home">Home</a><a class="pill" href="#sensors">Sensors</a><a class="pill" href="#connect">Connect</a><a class="pill" href="#scopes">Waveforms</a><a class="pill" href="#triage">AI Triage</a>
+  </div>
+  <a class="cta" href="#triage">Run triage</a>
+</nav>
+
+<!-- CLEAN HERO SECTION -->
+<header class="hero" id="home">
+  <svg class="doodle d1" viewBox="0 0 70 70"><line x1="35" y1="3" x2="35" y2="67"/><line x1="3" y1="35" x2="67" y2="35"/><line x1="12" y1="12" x2="58" y2="58"/><line x1="58" y1="12" x2="12" y2="58"/></svg>
+  <svg class="doodle d2" viewBox="0 0 90 90"><path d="M60 8c20-8 30 20 8 28-12 4-30 0-42 8-14 8-6 36 14 30"/></svg>
+
+  <h1>VITAL-PAL</h1>
+  <p class="tag">Real-time ECG, blood oxygen, and muscle biopotential telemetry paired with an AI clinical triage engine.</p>
+  <svg class="wave" viewBox="0 0 200 40"><path d="M4 22c18-18 36-14 48 0s34 14 46 0 36-14 48-2 24 4 30 2"/></svg>
 </header>
 
-<!-- HERO SECTION -->
-<section id="top" class="relative px-4 pt-28 pb-4 max-w-6xl mx-auto">
- <div class="relative text-center">
-  <h1 class="display text-[12vw] md:text-[6.5rem] leading-none text-emerald-400">VITAL-PAL</h1>
-  <p class="mx-auto mt-2 max-w-2xl text-sm md:text-base text-slate-400">High-resolution single-trace biopotential plotter with real-time X/Y numerical axis calibration.</p>
- </div>
+<!-- SENSOR HARDWARE ARRAY SECTION -->
+<section class="blk" id="sensors">
+  <h2>Biopotential Sensor Array</h2>
+  <p class="lead">Hardware sensors attached to the patient streaming 100 Hz medical telemetry.</p>
+  
+  <div class="sensor-grid">
+    <!-- AD8232 ECG Sensor -->
+    <div class="sensor-card">
+      <div class="sensor-img-box">
+        <img src="https://raw.githubusercontent.com/sparkfun/AD8232_Single_Lead_Heart_Rate_Monitor/master/Hardware/AD8232.jpg" alt="AD8232 ECG Sensor" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=400&auto=format&fit=crop&q=80';">
+      </div>
+      <h4>AD8232 ECG Lead</h4>
+      <p>Single-lead heart rate monitor for cardiac biopotential wave extraction.</p>
+      <span class="sensor-badge">ECG Lead I (A0)</span>
+    </div>
+
+    <!-- MAX30102 Pulse Oximeter -->
+    <div class="sensor-card">
+      <div class="sensor-img-box">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/e/e0/Pulse_oximeter_sensor.jpg/440px-Pulse_oximeter_sensor.jpg" alt="MAX30102 Sensor" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1584515979956-d9f6e5d09982?w=400&auto=format&fit=crop&q=80';">
+      </div>
+      <h4>MAX30102 Pulse Ox</h4>
+      <p>Optical PPG sensor measuring arterial oxygen (SpO2) and pulse rate.</p>
+      <span class="sensor-badge">I2C (0x57)</span>
+    </div>
+
+    <!-- BioAmp EXG Pill -->
+    <div class="sensor-card">
+      <div class="sensor-img-box">
+        <img src="https://raw.githubusercontent.com/UpsideDownLabs/BioAmp-EXG-Pill/main/hardware/BioAmp-EXG-Pill-v1.0b.jpg" alt="BioAmp EXG Pill" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1518770660439-4636190af475?w=400&auto=format&fit=crop&q=80';">
+      </div>
+      <h4>BioAmp EXG Pill</h4>
+      <p>Analog biopotential amplifier for muscle EMG and neural activity.</p>
+      <span class="sensor-badge">EMG Out (A1)</span>
+    </div>
+
+    <!-- ESP32 + Arduino Gateway Stack -->
+    <div class="sensor-card">
+      <div class="sensor-img-box">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/87/ESP-WROOM-32_ESP32_ESP-32S_Development_Board.jpg/440px-ESP-WROOM-32_ESP32_ESP-32S_Development_Board.jpg" alt="ESP32 Gateway" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=400&auto=format&fit=crop&q=80';">
+      </div>
+      <h4>ESP32 & Uno Gateway</h4>
+      <p>Dual-core microcontrollers streaming 100 Hz data via WebSocket & Bluetooth.</p>
+      <span class="sensor-badge">38400 Serial Bridge</span>
+    </div>
+  </div>
 </section>
 
-<!-- MAIN MONITORING DASHBOARD -->
-<section id="live" class="px-4 py-4 max-w-6xl mx-auto">
-
- <!-- 1. WEBSOCKET CONTROLS -->
- <div class="panel mb-4 flex flex-wrap items-center justify-between gap-3 border-emerald-500/40">
-  <div class="flex flex-wrap items-center gap-2 w-full lg:w-auto">
-   <span class="mono text-xs font-bold text-slate-400">ESP32 Address:</span>
-   <input id="wsIp" type="text" value="vitalpal.local" class="panel px-3 py-1.5 text-xs mono w-40 text-slate-100 bg-slate-900 border border-slate-700">
-   <button id="wsConnectBtn" class="cta py-1.5 px-4 text-xs">Connect WebSocket (100 Hz)</button>
+<!-- CONNECTION SECTION -->
+<section class="blk" id="connect">
+  <h2>Connect your sensor.</h2>
+  <p class="lead">Stream from the ESP32 over Wi-Fi or pair it over Serial/Bluetooth, then point triage at your tunnel.</p>
+  <div class="card conn">
+    <div class="field"><label for="wsUrl">ESP32 WebSocket (Wi-Fi)</label>
+      <input id="wsUrl" type="text" value="ws://vitalpal.local:81" placeholder="ws://vitalpal.local:81"></div>
+    <button id="connectBtn" class="btn btn-wifi" onclick="toggleWebSocket()">Connect Wi-Fi</button>
+    <button id="serialBtn" class="btn btn-serial" onclick="toggleWebSerial()">Pair Serial/BT</button>
+    <div class="field"><label for="apiUrl">Cloudflare Tunnel API</label>
+      <input id="apiUrl" type="text" value="https://aluminum-among-richardson-procedures.trycloudflare.com" placeholder="https://your-tunnel.trycloudflare.com"></div>
   </div>
-  
-  <div class="flex flex-wrap items-center gap-3">
-   <div id="wsStatus" class="mono text-xs px-3 py-1 rounded-full bg-slate-800 text-slate-400 font-bold">
-    Disconnected
-   </div>
-  </div>
- </div>
-
- <!-- 4-PARAMETER METRIC CARDS GRID -->
- <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
-  <div class="panel border-l-4" style="border-color:#ef4444">
-   <div class="mono text-xs text-slate-400">HEART RATE (HR)</div>
-   <div class="flex items-baseline gap-2 mt-1"><span id="bpm" class="display text-4xl md:text-5xl" style="color:#f87171">--</span><span class="mono text-xs text-slate-400">BPM</span><span class="beat ml-auto text-2xl text-emerald-400">♥</span></div>
-   <div id="lock" class="mono text-[10px] mt-2 text-amber-400">○ SEARCHING PULSE</div>
-  </div>
-
-  <div class="panel border-l-4" style="border-color:#06b6d4">
-   <div class="mono text-xs text-slate-400">BLOOD OXYGEN (SpO2)</div>
-   <div class="flex items-baseline gap-2 mt-1"><span id="spo2" class="display text-4xl md:text-5xl" style="color:#22d3ee">--%</span></div>
-   <div class="mono text-[10px] mt-2 text-emerald-400">MAX30102 PPG SENSOR</div>
-  </div>
-
-  <div class="panel border-l-4" style="border-color:#10b981">
-   <div class="mono text-xs text-slate-400">ECG VALUE (RAW / mV)</div>
-   <div class="flex items-baseline gap-2 mt-1"><span id="ecgRaw" class="display text-4xl md:text-5xl text-emerald-400">0</span><span id="ecgMv" class="mono text-xs text-slate-400">0.00 mV</span></div>
-   <div class="mono text-[10px] mt-2 text-emerald-400">AD8232 (PIN A0)</div>
-  </div>
-
-  <div class="panel border-l-4" style="border-color:#f59e0b">
-   <div class="mono text-xs text-slate-400">EMG VALUE (RAW / µV)</div>
-   <div class="flex items-baseline gap-2 mt-1"><span id="emgRaw" class="display text-4xl md:text-5xl text-amber-400">0</span><span id="emgUv" class="mono text-xs text-slate-400">0 µV</span></div>
-   <div class="mono text-[10px] mt-2 text-amber-400">BIOAMP EXG (PIN A1)</div>
-  </div>
- </div>
-
- <!-- DIAGNOSTICS PANEL -->
- <div id="diagnostics" class="panel mb-6 border-2 border-emerald-500/30 bg-slate-900/60">
-  <div class="flex items-center justify-between border-b pb-3 mb-3 border-slate-700">
-   <div class="flex items-center gap-2">
-    <span class="display text-lg text-emerald-400">Physiological Diagnostics</span>
-   </div>
-   <span id="healthBadge" class="mono text-xs px-3 py-1 rounded-full font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">MONITORING...</span>
-  </div>
-  <div class="grid md:grid-cols-2 gap-4">
-   <div>
-    <h4 class="mono text-xs text-slate-400 uppercase font-bold mb-1">Diagnostic Summary</h4>
-    <p id="healthSummary" class="text-sm text-slate-200">Streaming live biopotential signals...</p>
-   </div>
-   <div>
-    <h4 class="mono text-xs text-slate-400 uppercase font-bold mb-1">Recommendations</h4>
-    <ul id="healthAdvice" class="text-sm list-disc list-inside space-y-1 text-slate-300">
-     <li>Ensure electrode contacts are secure on skin.</li>
-    </ul>
-   </div>
-  </div>
- </div>
-
- <!-- OSCILLOSCOPES WITH HIGH-MAGNIFICATION SERIAL PLOTTER -->
- <div class="grid lg:grid-cols-2 gap-5 mb-6">
-  
-  <!-- ECG Canvas -->
-  <div class="panel bg-slate-950 text-white">
-   <div class="mono text-xs flex justify-between items-center mb-2">
-    <span class="text-emerald-400 font-bold">ECG WAVEFORM {"ecg"}</span>
-    <span id="ecgHeaderRange" class="text-slate-400">MIN: 0 | MAX: 0</span>
-   </div>
-   <canvas id="ecgCanvas" class="w-full" style="height:260px; background:#040d1a; border-radius:0.75rem"></canvas>
-   <div class="mono text-[10px] text-slate-400 mt-2 flex justify-between">
-    <span>GREEN: RAW ECG SIGNAL TRACE</span>
-    <span>70 SAMPLES WINDOW</span>
-   </div>
-  </div>
-
-  <!-- EMG Canvas -->
-  <div class="panel bg-slate-950 text-white">
-   <div class="mono text-xs flex justify-between items-center mb-2">
-    <span class="text-amber-400 font-bold">EMG WAVEFORM {"exg"}</span>
-    <span id="emgHeaderRange" class="text-amber-300 font-bold">MIN: 0 | MAX: 0</span>
-   </div>
-   <canvas id="emgCanvas" class="w-full" style="height:260px; background:#0d121f; border-radius:0.75rem"></canvas>
-   <div class="mono text-[10px] text-slate-400 mt-2 flex justify-between">
-    <span>AMBER: RAW EMG SINGLE LINE TRACE</span>
-    <span>DYNAMIC AUTO-SCALE ZOOM</span>
-   </div>
-  </div>
-
- </div>
-
- <!-- SYSTEM LOGS -->
- <div class="panel bg-slate-950">
-  <div class="flex items-center justify-between mb-2">
-   <div class="mono text-xs text-slate-400">TELEMETRY EVENT LOGS</div>
-   <span id="dbCounter" class="mono text-xs text-emerald-400 font-bold">0 samples logged</span>
-  </div>
-  <div id="log" class="mono text-xs h-28 overflow-y-auto space-y-1 bg-slate-900 p-3 rounded-lg text-slate-300"></div>
- </div>
-
 </section>
 
-<!-- APPLICATION ENGINE -->
+<!-- LIVE WAVEFORMS & AI TRIAGE -->
+<section class="blk" id="scopes">
+  <h2>Live Patient Telemetry</h2>
+  <p class="lead">Real-time vital sign metrics and 100 Hz biopotential streams.</p>
+
+  <!-- LIVE METRICS CARD BAR -->
+  <div class="vitals-bar">
+    <div class="v-card">
+      <div class="label"><span>Heart Rate</span><svg id="heartIcon" class="heart" viewBox="0 0 24 24"><path d="M12 21s-7.5-4.6-9.6-9.4C.9 8.1 3 4.5 6.6 4.5c2 0 3.6 1.1 5.4 3 1.8-1.9 3.4-3 5.4-3 3.6 0 5.7 3.6 4.2 7.1C19.5 16.4 12 21 12 21z"/></svg></div>
+      <div class="val"><span id="bpmVal">--</span><small>BPM</small></div>
+    </div>
+    <div class="v-card">
+      <div class="label"><span>SpO2 Oxygen</span></div>
+      <div class="val"><span id="spo2Val">--</span><small>%</small></div>
+    </div>
+    <div class="v-card">
+      <div class="label"><span>AD8232 ECG Delta</span></div>
+      <div class="val"><span id="ecgVal">--</span><small>RAW</small></div>
+    </div>
+    <div class="v-card">
+      <div class="label"><span>BioAmp EXG Delta</span></div>
+      <div class="val"><span id="exgVal">--</span><small>RAW</small></div>
+    </div>
+    <div class="v-card">
+      <div class="label"><span>Device Link</span></div>
+      <div class="val" style="margin-top:8px"><span id="connStatus">Offline</span></div>
+    </div>
+  </div>
+
+  <div class="grid2">
+    <div class="scopes">
+      <div class="card" style="--c:var(--coral)">
+        <div class="scope-h"><i></i>ECG Lead I <small>AD8232, 100 Hz stream</small></div>
+        <canvas id="ecgCanvas"></canvas>
+      </div>
+      <div class="card" style="--c:var(--amber)">
+        <div class="scope-h"><i></i>EMG muscle activity <small>BioAmp EXG Pill</small></div>
+        <canvas id="emgCanvas"></canvas>
+      </div>
+    </div>
+
+    <aside class="card" id="triage">
+      <div class="tri-h"><h3>LLM triage assessment</h3><span id="triageBadge">Idle</span></div>
+      <div id="triageResult">
+        <p class="empty">Connect your ESP32 feed over Wi-Fi WebSocket or Bluetooth Serial, then select <b>Run AI Triage Check</b> to analyze patient vitals.</p>
+      </div>
+      <label class="check"><input type="checkbox" id="autoTriageCheck"><span class="sw"></span><span>Auto-triage on abnormal vital breaches</span></label>
+      <button id="triageBtn" onclick="requestAiTriage()">⚡ Run AI Triage Check</button>
+    </aside>
+  </div>
+</section>
+<footer></footer>
+
 <script>
-const $=s=>document.querySelector(s);
+  // Global System State
+  let socket = null;
+  let serialPort = null;
+  let serialReader = null;
+  let currentBpm = 0, currentSpO2 = 0, currentEcg = 0, currentExg = 0;
+  let lastAutoTriggerTime = 0;
 
-function addLog(m) {
-  const d = document.createElement('div');
-  d.textContent = '[' + new Date().toLocaleTimeString() + '] ' + m;
-  const logContainer = $('#log');
-  if (logContainer) logContainer.prepend(d);
-}
+  // Waveform Buffers (300 Points)
+  const ecgBuffer = new Array(300).fill(0);
+  const emgBuffer = new Array(300).fill(0);
+  const ecgCanvas = document.getElementById('ecgCanvas');
+  const emgCanvas = document.getElementById('emgCanvas');
+  const ecgCtx = ecgCanvas.getContext('2d');
+  const emgCtx = emgCanvas.getContext('2d');
 
-// ==========================================
-// 1. SAFE FIREBASE INITIALIZATION WITH FIFO
-// ==========================================
-let db = null;
-const currentSessionId = 'session_' + Date.now();
-let dbBuffer = [];
-let totalLoggedSamples = 0;
-
-// Maximum historical session limit to retain in Firebase before FIFO deletion
-const MAX_SESSIONS = 30;
-
-try {
-  if (typeof firebase !== 'undefined') {
-    firebase.initializeApp({ databaseURL: "https://vital-pal-db-default-rtdb.firebaseio.com" });
-    db = firebase.database();
-    addLog("[Firebase] Realtime Database session started.");
+  function fitCanvas(c) {
+    const r = c.getBoundingClientRect(), d = window.devicePixelRatio || 1;
+    c.width = Math.round(r.width * d);
+    c.height = Math.round(r.height * d);
   }
-} catch (err) {
-  addLog("[Firebase] Running in local offline mode.");
-}
+  function fitAll() { fitCanvas(ecgCanvas); fitCanvas(emgCanvas); }
+  window.addEventListener('resize', fitAll);
+  fitAll();
 
-// FIFO Storage Pruning Function
-function enforceFifoStorage() {
-  if (!db) return;
+  function setNum(id, text) {
+    const el = document.getElementById(id);
+    if (el && el.textContent !== String(text)) {
+      el.textContent = text;
+    }
+  }
 
-  db.ref('sessions').once('value', (snapshot) => {
-    if (!snapshot.exists()) return;
+  // Central Packet Parsing & UI Updater
+  function processTelemetryPacket(jsonString) {
+    try {
+      const telemetry = JSON.parse(jsonString);
+      currentBpm = telemetry.bpm || 0;
+      currentSpO2 = telemetry.spo2 || 0;
+      currentEcg = telemetry.ecg || 0;
+      currentExg = telemetry.exg || 0;
 
-    const sessions = snapshot.val();
-    const sessionKeys = Object.keys(sessions); // Keys are chronological timestamps
+      setNum('bpmVal', currentBpm > 0 ? currentBpm : '--');
+      setNum('spo2Val', currentSpO2 > 0 ? currentSpO2 : '--');
+      document.getElementById('ecgVal').textContent = currentEcg;
+      document.getElementById('exgVal').textContent = currentExg;
 
-    if (sessionKeys.length > MAX_SESSIONS) {
-      const overflowCount = sessionKeys.length - MAX_SESSIONS;
-      const oldestKeysToDelete = sessionKeys.slice(0, overflowCount);
+      const heart = document.getElementById('heartIcon');
+      if (heart) {
+        if (currentBpm > 0) {
+          heart.style.setProperty('--beat', (60 / currentBpm).toFixed(2) + 's');
+          heart.classList.add('beating');
+        } else heart.classList.remove('beating');
+      }
 
-      oldestKeysToDelete.forEach((keyToDelete) => {
-        db.ref(`sessions/${keyToDelete}`).remove()
-          .then(() => addLog(`[FIFO Cleanup] Pruned oldest session: ${keyToDelete}`))
-          .catch((err) => addLog(`[FIFO Error] ${err.message}`));
+      ecgBuffer.push(currentEcg);
+      ecgBuffer.shift();
+      emgBuffer.push(currentExg);
+      emgBuffer.shift();
+
+      if (document.getElementById('autoTriageCheck').checked) {
+        if ((currentBpm > 110 || currentSpO2 < 93 || Math.abs(currentEcg) > 90) &&
+            (Date.now() - lastAutoTriggerTime > 12000)) {
+          lastAutoTriggerTime = Date.now();
+          console.log("⚠️ Anomaly Breach Detected: Requesting LLM Triage...");
+          requestAiTriage();
+        }
+      }
+    } catch (e) {
+      // Ignore partial packet chunks
+    }
+  }
+
+  // 1. Wi-Fi WebSocket Stream
+  function toggleWebSocket() {
+    if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) {
+      socket.close();
+      return;
+    }
+    const url = document.getElementById('wsUrl').value.trim();
+    socket = new WebSocket(url);
+
+    socket.onopen = () => {
+      setConnectionStatus('Wi-Fi Connected (100 Hz)', 'emerald');
+      const b = document.getElementById('connectBtn');
+      b.textContent = 'Disconnect';
+      b.className = 'btn live';
+    };
+    socket.onmessage = (event) => { processTelemetryPacket(event.data); };
+    socket.onclose = () => {
+      setConnectionStatus('Offline', 'slate');
+      const b = document.getElementById('connectBtn');
+      b.textContent = 'Connect Wi-Fi';
+      b.className = 'btn btn-wifi';
+    };
+  }
+
+  // 2. Web Serial / Bluetooth Fallback
+  async function toggleWebSerial() {
+    if (!("serial" in navigator)) {
+      alert("Web Serial API is not supported in this browser. Please use Google Chrome or MS Edge.");
+      return;
+    }
+    const sb = document.getElementById('serialBtn');
+    if (serialPort) {
+      if (serialReader) await serialReader.cancel();
+      await serialPort.close();
+      serialPort = null;
+      setConnectionStatus('Offline', 'slate');
+      sb.textContent = 'Pair Serial/BT';
+      sb.className = 'btn btn-serial';
+      return;
+    }
+    try {
+      serialPort = await navigator.serial.requestPort();
+      await serialPort.open({ baudRate: 115200 });
+
+      setConnectionStatus('Serial/BT Connected', 'indigo');
+      sb.textContent = 'Disconnect BT';
+      sb.className = 'btn live';
+
+      const textDecoder = new TextDecoderStream();
+      const readableStreamClosed = serialPort.readable.pipeTo(textDecoder.writable);
+      serialReader = textDecoder.readable.getReader();
+
+      let lineBuffer = "";
+      while (true) {
+        const { value, done } = await serialReader.read();
+        if (done) break;
+        lineBuffer += value;
+        let lines = lineBuffer.split('\n');
+        lineBuffer = lines.pop();
+        for (let line of lines) {
+          line = line.trim();
+          if (line.startsWith('{') && line.endsWith('}')) processTelemetryPacket(line);
+        }
+      }
+    } catch (err) {
+      console.error("Serial/BT Error:", err);
+    }
+  }
+
+  function setConnectionStatus(text, color) {
+    const statusEl = document.getElementById('connStatus');
+    statusEl.textContent = text;
+    statusEl.className = color;
+  }
+
+  // Oscilloscope Canvas Rendering Loop
+  function drawWaveform(ctx, canvas, buffer, color, maxAmplitude) {
+    const W = canvas.width, H = canvas.height, d = window.devicePixelRatio || 1;
+    ctx.clearRect(0, 0, W, H);
+
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = 'rgba(11,14,19,0.06)';
+    ctx.beginPath();
+    for (let x = 0; x <= W; x += 40 * d) { ctx.moveTo(x, 0); ctx.lineTo(x, H); }
+    for (let y = 0; y <= H; y += 28 * d) { ctx.moveTo(0, y); ctx.lineTo(W, y); }
+    ctx.stroke();
+
+    ctx.strokeStyle = 'rgba(11,14,19,0.22)';
+    ctx.setLineDash([6 * d, 6 * d]);
+    ctx.beginPath(); ctx.moveTo(0, H / 2); ctx.lineTo(W, H / 2); ctx.stroke();
+    ctx.setLineDash([]);
+
+    const step = W / (buffer.length - 1);
+    const centerY = H / 2, amp = H / 2 - 12 * d;
+    const yOf = v => centerY - Math.max(-1.6, Math.min(1.6, v / maxAmplitude)) * amp;
+
+    const grad = ctx.createLinearGradient(0, 0, 0, H);
+    grad.addColorStop(0, color + '30');
+    grad.addColorStop(1, color + '00');
+    ctx.beginPath();
+    ctx.moveTo(0, H);
+    for (let i = 0; i < buffer.length; i++) ctx.lineTo(i * step, yOf(buffer[i]));
+    ctx.lineTo(W, H);
+    ctx.closePath();
+    ctx.fillStyle = grad;
+    ctx.fill();
+
+    ctx.beginPath();
+    for (let i = 0; i < buffer.length; i++) {
+      const x = i * step, y = yOf(buffer[i]);
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2.5 * d;
+    ctx.lineJoin = 'round';
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(W - 4 * d, yOf(buffer[buffer.length - 1]), 5 * d, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.lineWidth = 2 * d; ctx.strokeStyle = '#fff'; ctx.stroke();
+  }
+
+  function renderLoop() {
+    drawWaveform(ecgCtx, ecgCanvas, ecgBuffer, '#ef4455', 250);
+    drawWaveform(emgCtx, emgCanvas, emgBuffer, '#f59e0b', 250);
+    requestAnimationFrame(renderLoop);
+  }
+  renderLoop();
+
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&','<':'<','>':'>','"':'"',"'":'''}[c]));
+  function setBadge(text, cls) {
+    const b = document.getElementById('triageBadge');
+    b.textContent = text;
+    b.className = cls;
+  }
+
+  // Query Llama Model via Cloudflare Tunnel
+  async function requestAiTriage() {
+    let baseUrl = document.getElementById('apiUrl').value.trim().replace(/\/$/, "");
+    if (!baseUrl) {
+      alert("Please enter a valid Cloudflare Tunnel URL.");
+      return;
+    }
+    const triageBtn = document.getElementById('triageBtn');
+    const resultBox = document.getElementById('triageResult');
+
+    triageBtn.disabled = true;
+    triageBtn.textContent = 'Analyzing Telemetry...';
+    setBadge('Processing', 'proc');
+
+    let ecgStatus = "Normal sinus rhythm";
+    if (currentEcg > 60) {
+      ecgStatus = `ST elevation +${(currentEcg / 50).toFixed(1)}mm`;
+    } else if (currentEcg < -60) {
+      ecgStatus = `ST depression -${(Math.abs(currentEcg) / 50).toFixed(1)}mm`;
+    }
+
+    const promptText = `### Instruction:\nAnalyze telemetry reading.\n\n### Input:\nHR: ${currentBpm} bpm, SpO2: ${currentSpO2}%, ECG: ${ecgStatus}\n\n### Response:`;
+
+    try {
+      const response = await fetch(`${baseUrl}/api/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: 'vitalpal', prompt: promptText, stream: false, format: 'json' })
       });
-    }
-  });
-}
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
-// 1-Second Batch Upload Loop
-setInterval(() => {
-  if (db && dbBuffer.length > 0) {
-    const batchToSend = [...dbBuffer];
-    dbBuffer = [];
-    totalLoggedSamples += batchToSend.length;
-    $('#dbCounter').textContent = `${totalLoggedSamples} samples logged`;
+      const data = await response.json();
+      let parsedJSON = {};
+      try {
+        parsedJSON = typeof data.response === 'string' ? JSON.parse(data.response) : data.response;
+      } catch (pErr) {
+        parsedJSON = { raw: data.response };
+      }
 
-    const latest = batchToSend[batchToSend.length - 1];
+      setBadge('Complete', 'done');
 
-    // 1. Update live snapshot node
-    db.ref('live_telemetry').set({
-      timestamp: Date.now(),
-      bpm: latest.bpm,
-      spo2: latest.spo2,
-      ecg: latest.rawEcg,
-      emg: latest.rawEmg
-    });
-
-    // 2. Append 100 Hz session batch
-    db.ref(`sessions/${currentSessionId}`).push({
-      batch_time: new Date().toISOString(),
-      samples_count: batchToSend.length,
-      readings: batchToSend
-    }).then(() => {
-      // 3. Trigger FIFO Pruning after write
-      enforceFifoStorage();
-    }).catch(err => addLog(`[Firebase Error] ${err.message}`));
-  }
-}, 1000);
-
-// ==========================================
-// 2. HIGH-ACCURACY SERIAL PLOTTER ENGINE
-// ==========================================
-function fit(c){const d=devicePixelRatio||1,r=c.getBoundingClientRect();c.width=r.width*d;c.height=r.height*d;c.getContext('2d').setTransform(d,0,0,d,0,0);return [r.width,r.height]}
-
-const ecgC = $('#ecgCanvas'), ecgX = ecgC.getContext('2d');
-const emgC = $('#emgCanvas'), emgX = emgC.getContext('2d');
-
-let EW=300, EH=260;
-
-// Conversion Constants
-const AD8232_GAIN = 1100.0;
-const BIOAMP_GAIN = 2420.0;
-const ADC_REF_VOLTS = 5.0;
-const ADC_RESOLUTION = 1024.0;
-
-const ECG_MV_PER_LSB = ((ADC_REF_VOLTS / ADC_RESOLUTION) / AD8232_GAIN) * 1000.0;
-const EMG_UV_PER_LSB = ((ADC_REF_VOLTS / ADC_RESOLUTION) / BIOAMP_GAIN) * 1000000.0;
-
-// Global Sample Index Counter for X-Axis Ticks
-let globalSampleCount = 0;
-
-// 70-sample visible window for zoomed, un-cramped trace display
-const BUFFER_SIZE = 70;
-let ecgBuffer = new Array(BUFFER_SIZE).fill(0);
-let emgRawBuffer = new Array(BUFFER_SIZE).fill(0);
-
-function initCanvases() {
-  [EW, EH] = fit(ecgC);
-  fit(emgC);
-}
-
-// Draw Precision Single-Line Serial Plotter with Numerical Y and X Grid Ticks
-function drawSerialPlotter(ctx, buffer, width, height, strokeColor) {
-  if (!buffer || buffer.length === 0) return;
-
-  const marginLeft = 55;
-  const marginBottom = 25;
-  const marginTop = 15;
-  const marginRight = 15;
-
-  const plotW = width - marginLeft - marginRight;
-  const plotH = height - marginTop - marginBottom;
-
-  let minVal = Math.min(...buffer);
-  let maxVal = Math.max(...buffer);
-
-  if (maxVal - minVal < 10) {
-    const mid = (maxVal + minVal) / 2;
-    minVal = mid - 10;
-    maxVal = mid + 10;
-  }
-
-  const span = maxVal - minVal;
-  const plotMin = minVal - span * 0.1;
-  const plotMax = maxVal + span * 0.1;
-  const plotRange = plotMax - plotMin || 1;
-
-  // --- 1. DRAW GRID & AXIS LABELS ---
-  ctx.lineWidth = 0.5;
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
-  ctx.fillStyle = '#94a3b8';
-  ctx.font = "10px 'JetBrains Mono', monospace";
-
-  // Y-Axis Ticks (5 Levels)
-  const ySteps = 4;
-  for (let i = 0; i <= ySteps; i++) {
-    const ratio = i / ySteps;
-    const yPx = marginTop + plotH - (ratio * plotH);
-    const val = minVal + ratio * span;
-
-    // Horizontal Gridline
-    ctx.beginPath();
-    ctx.moveTo(marginLeft, yPx);
-    ctx.lineTo(marginLeft + plotW, yPx);
-    ctx.stroke();
-
-    // Y Label
-    ctx.textAlign = "right";
-    const labelStr = Math.abs(val) >= 100 ? Math.round(val).toString() : val.toFixed(1);
-    ctx.fillText(labelStr, marginLeft - 6, yPx + 3);
-  }
-
-  // X-Axis Ticks (5 Sample Counters)
-  const xSteps = 4;
-  const startSample = Math.max(0, globalSampleCount - BUFFER_SIZE);
-  for (let i = 0; i <= xSteps; i++) {
-    const ratio = i / xSteps;
-    const xPx = marginLeft + ratio * plotW;
-    const sampleIdx = Math.round(startSample + ratio * BUFFER_SIZE);
-
-    // Vertical Gridline
-    ctx.beginPath();
-    ctx.moveTo(xPx, marginTop);
-    ctx.lineTo(xPx, marginTop + plotH);
-    ctx.stroke();
-
-    // X Label
-    ctx.textAlign = "center";
-    ctx.fillText(sampleIdx.toString(), xPx, height - 6);
-  }
-
-  // --- 2. DRAW SINGLE CLEAN CONTINUOUS WAVEFORM TRACE ---
-  ctx.strokeStyle = strokeColor;
-  ctx.lineWidth = 2.2;
-  ctx.lineJoin = 'round';
-  ctx.lineCap = 'round';
-
-  ctx.beginPath();
-  buffer.forEach((v, i) => {
-    const x = marginLeft + (i / (buffer.length - 1)) * plotW;
-    const y = marginTop + plotH - ((v - plotMin) / plotRange) * plotH;
-    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-  });
-  ctx.stroke();
-
-  return { min: Math.round(minVal), max: Math.round(maxVal) };
-}
-
-function renderOscilloscopes() {
-  // --- 1. ECG CANVAS ---
-  ecgX.fillStyle = '#040d1a'; 
-  ecgX.fillRect(0, 0, EW, EH);
-  const ecgStats = drawSerialPlotter(ecgX, ecgBuffer, EW, EH, '#00E676');
-  if (ecgStats) $('#ecgHeaderRange').textContent = `MIN: ${ecgStats.min} | MAX: ${ecgStats.max}`;
-
-  // --- 2. EMG CANVAS (SINGLE CLEAN AMBER LINE TRACE) ---
-  emgX.fillStyle = '#0d121f'; 
-  emgX.fillRect(0, 0, EW, EH);
-  const emgStats = drawSerialPlotter(emgX, emgRawBuffer, EW, EH, '#f59e0b');
-  if (emgStats) $('#emgHeaderRange').textContent = `MIN: ${emgStats.min} | MAX: ${emgStats.max}`;
-
-  requestAnimationFrame(renderOscilloscopes);
-}
-
-// ==========================================
-// 3. DIAGNOSTICS ENGINE
-// ==========================================
-function evaluateHealthDiagnostics(bpm, spo2, rawEcg, rawEmg) {
-  const badge = $('#healthBadge');
-  const summary = $('#healthSummary');
-  const adviceList = $('#healthAdvice');
-
-  let status = "NORMAL";
-  let colorClass = "bg-emerald-500/20 text-emerald-400 border-emerald-500/40";
-  let summaryText = [];
-  let advice = [];
-
-  if (bpm > 0) {
-    if (bpm < 60) {
-      status = "BRADYCARDIA";
-      summaryText.push("Heart rate is low (< 60 BPM).");
-    } else if (bpm > 100) {
-      status = "TACHYCARDIA";
-      summaryText.push("Heart rate is elevated (> 100 BPM).");
-    } else {
-      summaryText.push("Heart rate in normal range (60–100 BPM).");
-    }
-  } else {
-    summaryText.push("Awaiting pulse sensor connection.");
-  }
-
-  if (spo2 > 0) {
-    if (spo2 < 90) {
-      status = "CRITICAL HYPOXIA";
-      summaryText.push("SpO2 critical (< 90%).");
-    } else if (spo2 < 95) {
-      if (!status.includes("CRITICAL")) status = "MILD HYPOXIA";
-      summaryText.push("SpO2 mildly low (90–94%).");
-    } else {
-      summaryText.push("Blood oxygen healthy (>= 95%).");
+      if (parsedJSON.raw) {
+        resultBox.innerHTML = `<div class="raw">${esc(parsedJSON.raw)}</div>`;
+      } else {
+        const status = String(parsedJSON.status || parsedJSON.diagnosis || 'NORMAL / STABLE');
+        const good = /normal|stable|healthy|ok/i.test(status) && !/abnormal|unstable/i.test(status);
+        const advice = parsedJSON.recommendation || parsedJSON.advice;
+        resultBox.innerHTML = `
+          <div class="res">
+            <div><span class="k">Diagnostic status</span><span class="status ${good ? 'good' : 'bad'}">${esc(status)}</span></div>
+            <div class="pair">
+              <div><span class="k">Heart rate</span><b>${esc(parsedJSON.vital_signs?.hr_bpm || currentBpm)} BPM</b></div>
+              <div><span class="k">SpO2 level</span><b>${esc(parsedJSON.vital_signs?.spo2_percent || currentSpO2)}%</b></div>
+            </div>
+            <div class="sec"><span class="k">ECG analysis</span><span>${esc(parsedJSON.ecg_findings || ecgStatus)}</span></div>
+            ${advice ? `<div class="sec"><span class="k">Clinical advice</span><span class="advice">${esc(advice)}</span></div>` : ''}
+          </div>`;
+      }
+    } catch (err) {
+      console.error(err);
+      setBadge('Error', 'err');
+      resultBox.innerHTML = `<p class="err-msg">Failed to query endpoint. Ensure Google Colab Cell 4 is actively running and the tunnel URL matches.</p>`;
+    } finally {
+      triageBtn.disabled = false;
+      triageBtn.textContent = '⚡ Run AI Triage Check';
     }
   }
-
-  if (Math.abs(rawEmg) > 100) {
-    summaryText.push("Active muscle exertion detected on EMG channel.");
-  }
-
-  if (advice.length === 0) {
-    advice.push("Signal baseline stable. Plotter tracking active.");
-  }
-
-  if (status.includes("CRITICAL")) colorClass = "bg-red-500/20 text-red-400 border-red-500/40";
-  else if (status !== "NORMAL") colorClass = "bg-amber-500/20 text-amber-400 border-amber-500/40";
-
-  badge.className = `mono text-xs px-3 py-1 rounded-full font-bold border ${colorClass}`;
-  badge.textContent = status;
-  summary.textContent = summaryText.join(" ");
-  adviceList.innerHTML = advice.map(item => `<li>${item}</li>`).join("");
-}
-
-// ==========================================
-// 4. TELEMETRY INGESTION ENGINE
-// ==========================================
-function ingest(line) {
-  line = line.trim();
-  if (!line) return;
-
-  try {
-    const data = JSON.parse(line);
-    const bpmVal  = data.bpm  || 0;
-    const spo2Val = data.spo2 || 0;
-    const rawEcg  = data.ecg  !== undefined ? data.ecg : 0;
-    const rawEmg  = data.exg  !== undefined ? data.exg : 0;
-
-    globalSampleCount++;
-
-    const ecgMv = rawEcg * ECG_MV_PER_LSB;
-    const emgUv = rawEmg * EMG_UV_PER_LSB;
-
-    if (bpmVal > 0)  $('#bpm').textContent  = Math.round(bpmVal);
-    if (spo2Val > 0) $('#spo2').textContent = `${Math.round(spo2Val)}%`;
-    $('#ecgRaw').textContent = rawEcg;
-    $('#ecgMv').textContent  = `${ecgMv.toFixed(2)} mV`;
-    $('#emgRaw').textContent = rawEmg;
-    $('#emgUv').textContent  = `${Math.round(emgUv)} µV`;
-
-    $('#lock').textContent = bpmVal > 0 ? '● PULSE DETECTED' : '○ SEARCHING PULSE';
-    $('#lock').className = bpmVal > 0 ? 'mono text-[10px] mt-2 text-emerald-400' : 'mono text-[10px] mt-2 text-amber-400';
-
-    ecgBuffer.push(rawEcg);
-    if (ecgBuffer.length > BUFFER_SIZE) ecgBuffer.shift();
-
-    emgRawBuffer.push(rawEmg);
-    if (emgRawBuffer.length > BUFFER_SIZE) emgRawBuffer.shift();
-
-    evaluateHealthDiagnostics(bpmVal, spo2Val, rawEcg, rawEmg);
-    dbBuffer.push({ ts: Date.now(), bpm: bpmVal, spo2: spo2Val, rawEcg, rawEmg });
-
-  } catch (e) {}
-}
-
-// ==========================================
-// 5. WEBSOCKET CONTROLLER
-// ==========================================
-let ws = null;
-let isWsConnected = false;
-
-function connectWebSocket() {
-  const ipInput = $('#wsIp');
-  let host = ipInput ? ipInput.value.trim() : 'vitalpal.local';
-  if (!host) host = 'vitalpal.local';
-
-  let wsUrl = host;
-  if (!wsUrl.startsWith('ws://') && !wsUrl.startsWith('wss://')) {
-    if (!wsUrl.includes(':')) wsUrl = `ws://${wsUrl}:81`;
-    else wsUrl = `ws://${wsUrl}`;
-  }
-
-  addLog(`Connecting to Gateway: ${wsUrl}...`);
-
-  try {
-    ws = new WebSocket(wsUrl);
-
-    ws.onopen = () => {
-      isWsConnected = true;
-      $('#wsConnectBtn').textContent = "Disconnect Gateway";
-      $('#wsStatus').textContent = "100 Hz Stream Active";
-      $('#wsStatus').className = "mono text-xs px-3 py-1 rounded-full bg-emerald-900 text-emerald-200 font-bold";
-      addLog(">>> Telemetry Gateway Connected Successfully!");
-    };
-
-    ws.onmessage = (event) => ingest(event.data);
-
-    ws.onerror = (err) => {
-      addLog(`[WebSocket Error] Connection failed to ${wsUrl}.`);
-    };
-
-    ws.onclose = () => {
-      isWsConnected = false;
-      $('#wsConnectBtn').textContent = "Connect WebSocket (100 Hz)";
-      $('#wsStatus').textContent = "Disconnected";
-      $('#wsStatus').className = "mono text-xs px-3 py-1 rounded-full bg-slate-800 text-slate-400 font-bold";
-      addLog("[WebSocket] Connection closed.");
-    };
-  } catch (err) {
-    addLog(`[WebSocket Error] ${err.message}`);
-  }
-}
-
-// Direct Web Serial / Bluetooth
-async function connectBluetoothSerial() {
-  try {
-    if (!('serial' in navigator)) throw new Error('Web Serial unsupported on this browser.');
-    const port = await navigator.serial.requestPort();
-    await port.open({ baudRate: 115200 });
-
-    addLog('Bluetooth / Serial connected at 115200 baud');
-    const dec = new TextDecoderStream();
-    port.readable.pipeTo(dec.writable);
-    const rd = dec.readable.getReader();
-    let acc = '';
-
-    for (;;) {
-      const { value, done } = await rd.read();
-      if (done) break;
-      acc += value;
-      const ls = acc.split('\n');
-      acc = ls.pop();
-      ls.forEach(ingest);
-    }
-  } catch (e) {
-    addLog('Stream Error: ' + (e.message || 'connection closed'));
-  }
-}
-
-// ==========================================
-// 6. INITIALIZATION & CONTROLS
-// ==========================================
-window.addEventListener('DOMContentLoaded', () => {
-  initCanvases();
-  renderOscilloscopes();
-
-  const ipInput = $('#wsIp');
-  const savedHost = localStorage.getItem('esp32_host') || 'vitalpal.local';
-  if (ipInput) ipInput.value = savedHost;
-
-  if (ipInput) {
-    ipInput.addEventListener('change', () => {
-      localStorage.setItem('esp32_host', ipInput.value.trim());
-    });
-  }
-
-  setTimeout(() => {
-    if (ipInput && ipInput.value.trim()) connectWebSocket();
-  }, 500);
-
-  $('#wsConnectBtn').addEventListener('click', () => {
-    if (isWsConnected) { if (ws) ws.close(); } else { connectWebSocket(); }
-  });
-
-  $('#btBtn').addEventListener('click', connectBluetoothSerial);
-
-  addLog("[System] Precision Telemetry Plotter initialized.");
-});
-
-window.addEventListener('resize', initCanvases);
 </script>
 </body>
 </html>
