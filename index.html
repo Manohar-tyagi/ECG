@@ -7,6 +7,11 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+
+<!-- Firebase Realtime Database SDKs -->
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+
 <style>
 :root{--paper:#f6f6f2;--ink:#0b0e13;--mute:#5b6270;--green:#2fd67c;--green-d:#12a05a;--coral:#ef4455;--blue:#2f8cf0;--amber:#f59e0b;--line:rgba(11,14,19,.09);--beat:1s}
 *{box-sizing:border-box;margin:0}
@@ -187,7 +192,7 @@ footer{height:90px}
         <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/87/ESP-WROOM-32_ESP32_ESP-32S_Development_Board.jpg/440px-ESP-WROOM-32_ESP32_ESP-32S_Development_Board.jpg" alt="ESP32 Gateway" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=400&auto=format&fit=crop&q=80';">
       </div>
       <h4>ESP32 & Uno Gateway</h4>
-      <p>Dual-core microcontrollers streaming telemetry over Wi-Fi, Bluetooth, & Cloud.</p>
+      <p>Dual-core microcontrollers streaming telemetry over Wi-Fi, Bluetooth, & Firebase.</p>
       <span class="sensor-badge">38400 Serial Bridge</span>
     </div>
   </div>
@@ -215,7 +220,7 @@ footer{height:90px}
 <!-- LIVE WAVEFORMS & AI TRIAGE -->
 <section class="blk" id="scopes">
   <h2>Live Patient Telemetry</h2>
-  <p class="lead">Real-time vital sign metrics and biopotential streams.</p>
+  <p class="lead">Real-time vital sign metrics, biopotential streams, and live Firebase logging.</p>
 
   <div class="vitals-bar">
     <div class="v-card">
@@ -265,11 +270,75 @@ footer{height:90px}
 <footer></footer>
 
 <script>
+  // ==========================================
+  // 1. FIREBASE REALTIME DATABASE SYNC
+  // ==========================================
+  let db = null;
+  const currentSessionId = 'session_' + Date.now();
+  let dbBuffer = [];
+  let totalLoggedSamples = 0;
+  const MAX_SESSIONS = 30;
+
+  try {
+    if (typeof firebase !== 'undefined') {
+      firebase.initializeApp({ databaseURL: "https://vital-pal-db-default-rtdb.firebaseio.com" });
+      db = firebase.database();
+      console.log("🔥 Firebase Realtime Database connected successfully.");
+    }
+  } catch (err) {
+    console.warn("Firebase Running in offline mode:", err);
+  }
+
+  function enforceFifoStorage() {
+    if (!db) return;
+    db.ref('sessions').once('value', (snapshot) => {
+      if (!snapshot.exists()) return;
+      const sessions = snapshot.val();
+      const sessionKeys = Object.keys(sessions);
+      if (sessionKeys.length > MAX_SESSIONS) {
+        const overflowCount = sessionKeys.length - MAX_SESSIONS;
+        const oldestKeys = sessionKeys.slice(0, overflowCount);
+        oldestKeys.forEach((key) => db.ref(`sessions/${key}`).remove());
+      }
+    });
+  }
+
+  // 1-Second Batch Upload Loop to Firebase
+  setInterval(() => {
+    if (db && dbBuffer.length > 0) {
+      const batchToSend = [...dbBuffer];
+      dbBuffer = [];
+      totalLoggedSamples += batchToSend.length;
+      const latest = batchToSend[batchToSend.length - 1];
+
+      // Update live snapshot node
+      db.ref('live_telemetry').set({
+        timestamp: Date.now(),
+        bpm: latest.bpm,
+        spo2: latest.spo2,
+        ecg: latest.ecg,
+        emg: latest.exg
+      });
+
+      // Append batch to historical session
+      db.ref(`sessions/${currentSessionId}`).push({
+        batch_time: new Date().toISOString(),
+        samples_count: batchToSend.length,
+        readings: batchToSend
+      }).then(() => {
+        enforceFifoStorage();
+      }).catch(err => console.error("Firebase Sync Error:", err));
+    }
+  }, 1000);
+
+  // ==========================================
+  // 2. DASHBOARD STATE & TELEMETRY INGESTION
+  // ==========================================
   let socket = null;
   let serialPort = null;
   let serialReader = null;
   let thingSpeakTimer = null;
-  const DEFAULT_THINGSPEAK_CHANNEL = "3546624"; // Quiet Background Fallback
+  const DEFAULT_THINGSPEAK_CHANNEL = "3546624";
 
   let currentBpm = 0, currentSpO2 = 0, currentEcg = 0, currentExg = 0;
   let lastAutoTriggerTime = 0;
@@ -321,6 +390,9 @@ footer{height:90px}
       emgBuffer.push(currentExg);
       emgBuffer.shift();
 
+      // Buffer packet for Firebase Realtime Batch Upload
+      dbBuffer.push({ ts: Date.now(), bpm: currentBpm, spo2: currentSpO2, ecg: currentEcg, exg: currentExg });
+
       if (document.getElementById('autoTriageCheck').checked) {
         if ((currentBpm > 110 || currentSpO2 < 93 || Math.abs(currentEcg) > 90) &&
             (Date.now() - lastAutoTriggerTime > 12000)) {
@@ -369,7 +441,6 @@ footer{height:90px}
     }
   }
 
-  // Hybrid Wi-Fi Connection Switcher (Direct WebSocket with Automatic Cloud Fallback)
   function toggleWebSocket() {
     const b = document.getElementById('connectBtn');
 
@@ -422,7 +493,6 @@ footer{height:90px}
     };
   }
 
-  // Web Serial / Bluetooth Direct Link
   async function toggleWebSerial() {
     if (!("serial" in navigator)) {
       alert("Web Serial API is not supported in this browser. Please use Chrome or MS Edge.");
