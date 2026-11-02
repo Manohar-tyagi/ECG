@@ -64,8 +64,8 @@ h1{font-size:clamp(56px,13.4vw,200px);line-height:.9;font-weight:900;letter-spac
 
 #connStatus{font-weight:800;font-size:1.1rem;display:flex;align-items:center;gap:8px;color:var(--mute)}
 #connStatus::before{content:"";width:10px;height:10px;border-radius:50%;background:currentColor;flex:none}
-#connStatus.emerald{color:var(--green-d)}#connStatus.indigo{color:#5b4fe0}
-#connStatus.emerald::before,#connStatus.indigo::before{animation:blink 1.1s infinite}
+#connStatus.emerald{color:var(--green-d)}#connStatus.indigo{color:#5b4fe0}#connStatus.blue{color:var(--blue)}
+#connStatus.emerald::before,#connStatus.indigo::before,#connStatus.blue::before{animation:blink 1.1s infinite}
 @keyframes blink{50%{opacity:.25}}
 
 /* DASHBOARD SECTIONS */
@@ -78,10 +78,11 @@ h2{font-size:clamp(1.8rem,4vw,3.2rem);font-weight:900;letter-spacing:-.04em;line
 .field label{font-size:.78rem;font-weight:600;color:var(--mute)}
 input[type=text]{height:44px;padding:0 16px;border-radius:99px;border:1.5px solid var(--line);background:var(--paper);font:500 .88rem 'Inter',sans-serif;color:var(--ink);transition:border-color .2s,box-shadow .2s}
 input[type=text]:focus{outline:none;border-color:var(--green-d);box-shadow:0 0 0 4px rgba(47,214,124,.25)}
-#wsUrl{width:230px}#apiUrl{width:340px;max-width:100%}
+#wsUrl{width:200px}#tsChannelId{width:140px}#apiUrl{width:280px;max-width:100%}
 .btn{height:44px;padding:0 22px;border:0;border-radius:99px;font:700 .9rem 'Inter',sans-serif;cursor:pointer;transition:transform .2s,filter .2s}
 .btn:hover{transform:translateY(-2px)}.btn:active{transform:scale(.97)}
 .btn-wifi{background:var(--green);color:var(--ink)}
+.btn-ts{background:var(--blue);color:#fff}
 .btn-serial{background:var(--ink);color:#fff}
 .btn.live{background:var(--coral);color:#fff}
 .grid2{display:grid;grid-template-columns:2fr 1fr;gap:22px;align-items:start}
@@ -152,7 +153,7 @@ footer{height:90px}
 <!-- SENSOR HARDWARE ARRAY SECTION -->
 <section class="blk" id="sensors">
   <h2>Biopotential Sensor Array</h2>
-  <p class="lead">Hardware sensors attached to the patient streaming 100 Hz medical telemetry.</p>
+  <p class="lead">Hardware sensors attached to the patient streaming medical telemetry.</p>
   
   <div class="sensor-grid">
     <div class="sensor-card">
@@ -187,7 +188,7 @@ footer{height:90px}
         <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/87/ESP-WROOM-32_ESP32_ESP-32S_Development_Board.jpg/440px-ESP-WROOM-32_ESP32_ESP-32S_Development_Board.jpg" alt="ESP32 Gateway" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=400&auto=format&fit=crop&q=80';">
       </div>
       <h4>ESP32 & Uno Gateway</h4>
-      <p>Dual-core microcontrollers streaming 100 Hz data via WebSocket & Bluetooth.</p>
+      <p>Dual-core microcontrollers streaming data via WebSocket, Bluetooth, & ThingSpeak.</p>
       <span class="sensor-badge">38400 Serial Bridge</span>
     </div>
   </div>
@@ -195,22 +196,34 @@ footer{height:90px}
 
 <!-- CONNECTION SECTION -->
 <section class="blk" id="connect">
-  <h2>Connect your sensor.</h2>
-  <p class="lead">Stream from the ESP32 over Wi-Fi or pair it over Serial/Bluetooth, then point triage at your tunnel.</p>
+  <h2>Connect your telemetry stream.</h2>
+  <p class="lead">Select your connection mode below. ThingSpeak HTTPS streaming works directly on Vercel without local Wi-Fi IP blocks!</p>
   <div class="card conn">
-    <div class="field"><label for="wsUrl">ESP32 WebSocket (Wi-Fi)</label>
-      <input id="wsUrl" type="text" value="ws://10.36.5.76:81" placeholder="ws://10.36.5.76:81"></div>
+    <div class="field">
+      <label for="tsChannelId">ThingSpeak Channel (HTTPS)</label>
+      <input id="tsChannelId" type="text" value="3546624" placeholder="3546624">
+    </div>
+    <button id="tsBtn" class="btn btn-ts" onclick="toggleThingSpeakStream()">Stream ThingSpeak HTTPS</button>
+
+    <div class="field">
+      <label for="wsUrl">ESP32 WebSocket (Wi-Fi)</label>
+      <input id="wsUrl" type="text" value="ws://10.36.5.76:81" placeholder="ws://10.36.5.76:81">
+    </div>
     <button id="connectBtn" class="btn btn-wifi" onclick="toggleWebSocket()">Connect Wi-Fi</button>
+
     <button id="serialBtn" class="btn btn-serial" onclick="toggleWebSerial()">Pair Serial/BT</button>
-    <div class="field"><label for="apiUrl">Cloudflare Tunnel API</label>
-      <input id="apiUrl" type="text" value="https://aluminum-among-richardson-procedures.trycloudflare.com" placeholder="https://your-tunnel.trycloudflare.com"></div>
+
+    <div class="field">
+      <label for="apiUrl">Cloudflare Tunnel API</label>
+      <input id="apiUrl" type="text" value="https://aluminum-among-richardson-procedures.trycloudflare.com" placeholder="https://your-tunnel.trycloudflare.com">
+    </div>
   </div>
 </section>
 
 <!-- LIVE WAVEFORMS & AI TRIAGE -->
 <section class="blk" id="scopes">
   <h2>Live Patient Telemetry</h2>
-  <p class="lead">Real-time vital sign metrics and 100 Hz biopotential streams.</p>
+  <p class="lead">Real-time vital sign metrics and biopotential streams.</p>
 
   <div class="vitals-bar">
     <div class="v-card">
@@ -238,7 +251,7 @@ footer{height:90px}
   <div class="grid2">
     <div class="scopes">
       <div class="card" style="--c:var(--coral)">
-        <div class="scope-h"><i></i>ECG Lead I <small>AD8232, 100 Hz stream</small></div>
+        <div class="scope-h"><i></i>ECG Lead I <small>AD8232 cardiac stream</small></div>
         <canvas id="ecgCanvas"></canvas>
       </div>
       <div class="card" style="--c:var(--amber)">
@@ -250,7 +263,7 @@ footer{height:90px}
     <aside class="card" id="triage">
       <div class="tri-h"><h3>LLM triage assessment</h3><span id="triageBadge">Idle</span></div>
       <div id="triageResult">
-        <p class="empty">Connect your ESP32 feed over Wi-Fi WebSocket or Bluetooth Serial, then select <b>Run AI Triage Check</b> to analyze patient vitals.</p>
+        <p class="empty">Connect your ESP32 feed over ThingSpeak HTTPS, Wi-Fi WebSocket, or Bluetooth Serial, then select <b>Run AI Triage Check</b> to analyze vitals.</p>
       </div>
       <label class="check"><input type="checkbox" id="autoTriageCheck"><span class="sw"></span><span>Auto-triage on abnormal vital breaches</span></label>
       <button id="triageBtn" onclick="requestAiTriage()">⚡ Run AI Triage Check</button>
@@ -263,6 +276,7 @@ footer{height:90px}
   let socket = null;
   let serialPort = null;
   let serialReader = null;
+  let thingSpeakTimer = null;
   let currentBpm = 0, currentSpO2 = 0, currentEcg = 0, currentExg = 0;
   let lastAutoTriggerTime = 0;
 
@@ -284,23 +298,21 @@ footer{height:90px}
 
   function setNum(id, text) {
     const el = document.getElementById(id);
-    if (el && el.textContent !== String(text)) {
-      el.textContent = text;
-    }
+    if (el && el.textContent !== String(text)) el.textContent = text;
   }
 
   function processTelemetryPacket(jsonString) {
     try {
-      const telemetry = JSON.parse(jsonString);
-      currentBpm = telemetry.bpm || 0;
-      currentSpO2 = telemetry.spo2 || 0;
-      currentEcg = telemetry.ecg || 0;
-      currentExg = telemetry.exg || 0;
+      const telemetry = typeof jsonString === 'string' ? JSON.parse(jsonString) : jsonString;
+      currentBpm = parseFloat(telemetry.bpm || telemetry.field1 || 0);
+      currentSpO2 = parseFloat(telemetry.spo2 || telemetry.field2 || 0);
+      currentEcg = parseFloat(telemetry.ecg || telemetry.field3 || 0);
+      currentExg = parseFloat(telemetry.exg || telemetry.field4 || 0);
 
-      setNum('bpmVal', currentBpm > 0 ? currentBpm : '--');
-      setNum('spo2Val', currentSpO2 > 0 ? currentSpO2 : '--');
-      document.getElementById('ecgVal').textContent = currentEcg;
-      document.getElementById('exgVal').textContent = currentExg;
+      setNum('bpmVal', currentBpm > 0 ? Math.round(currentBpm) : '--');
+      setNum('spo2Val', currentSpO2 > 0 ? Math.round(currentSpO2) : '--');
+      document.getElementById('ecgVal').textContent = Math.round(currentEcg);
+      document.getElementById('exgVal').textContent = Math.round(currentExg);
 
       const heart = document.getElementById('heartIcon');
       if (heart) {
@@ -323,11 +335,51 @@ footer{height:90px}
           requestAiTriage();
         }
       }
-    } catch (e) {
-      // Ignore partial packet chunks
-    }
+    } catch (e) {}
   }
 
+  // 1. ThingSpeak HTTPS Stream (Works seamlessly on Vercel)
+  function toggleThingSpeakStream() {
+    const btn = document.getElementById('tsBtn');
+    if (thingSpeakTimer) {
+      clearInterval(thingSpeakTimer);
+      thingSpeakTimer = null;
+      setConnectionStatus('Offline', 'slate');
+      btn.textContent = 'Stream ThingSpeak HTTPS';
+      btn.className = 'btn btn-ts';
+      return;
+    }
+
+    const channelId = document.getElementById('tsChannelId').value.trim();
+    if (!channelId) { alert("Please enter a valid ThingSpeak Channel ID."); return; }
+
+    setConnectionStatus('ThingSpeak HTTPS Active', 'blue');
+    btn.textContent = 'Disconnect TS';
+    btn.className = 'btn live';
+
+    async function fetchTS() {
+      try {
+        const res = await fetch(`https://api.thingspeak.com/channels/${channelId}/feeds.json?results=1`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.feeds && data.feeds.length > 0) {
+            const feed = data.feeds[0];
+            processTelemetryPacket({
+              bpm: feed.field1,
+              spo2: feed.field2,
+              ecg: feed.field3,
+              exg: feed.field4
+            });
+          }
+        }
+      } catch (err) { console.error("ThingSpeak Fetch Error:", err); }
+    }
+
+    fetchTS();
+    thingSpeakTimer = setInterval(fetchTS, 3000);
+  }
+
+  // 2. Wi-Fi WebSocket Stream
   function toggleWebSocket() {
     if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) {
       socket.close();
@@ -343,9 +395,7 @@ footer{height:90px}
       b.className = 'btn live';
     };
     socket.onmessage = (event) => { processTelemetryPacket(event.data); };
-    socket.onerror = (err) => {
-      console.error("WebSocket Connection Error:", err);
-    };
+    socket.onerror = (err) => { console.error("WebSocket Connection Error:", err); };
     socket.onclose = () => {
       setConnectionStatus('Offline', 'slate');
       const b = document.getElementById('connectBtn');
@@ -354,9 +404,10 @@ footer{height:90px}
     };
   }
 
+  // 3. Web Serial / Bluetooth Stream
   async function toggleWebSerial() {
     if (!("serial" in navigator)) {
-      alert("Web Serial API is not supported in this browser. Please use Google Chrome or MS Edge.");
+      alert("Web Serial API is not supported in this browser. Please use Chrome or MS Edge.");
       return;
     }
     const sb = document.getElementById('serialBtn');
@@ -393,9 +444,7 @@ footer{height:90px}
           if (line.startsWith('{') && line.endsWith('}')) processTelemetryPacket(line);
         }
       }
-    } catch (err) {
-      console.error("Serial/BT Error:", err);
-    }
+    } catch (err) { console.error("Serial/BT Error:", err); }
   }
 
   function setConnectionStatus(text, color) {
@@ -459,7 +508,7 @@ footer{height:90px}
   }
   renderLoop();
 
-  const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&','<':'<','>':'>','"':'"',"'":'''}[c]));
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   
   function setBadge(text, cls) {
     const b = document.getElementById('triageBadge');
