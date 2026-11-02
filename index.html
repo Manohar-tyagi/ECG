@@ -78,11 +78,10 @@ h2{font-size:clamp(1.8rem,4vw,3.2rem);font-weight:900;letter-spacing:-.04em;line
 .field label{font-size:.78rem;font-weight:600;color:var(--mute)}
 input[type=text]{height:44px;padding:0 16px;border-radius:99px;border:1.5px solid var(--line);background:var(--paper);font:500 .88rem 'Inter',sans-serif;color:var(--ink);transition:border-color .2s,box-shadow .2s}
 input[type=text]:focus{outline:none;border-color:var(--green-d);box-shadow:0 0 0 4px rgba(47,214,124,.25)}
-#wsUrl{width:200px}#tsChannelId{width:140px}#apiUrl{width:280px;max-width:100%}
+#wsUrl{width:230px}#apiUrl{width:340px;max-width:100%}
 .btn{height:44px;padding:0 22px;border:0;border-radius:99px;font:700 .9rem 'Inter',sans-serif;cursor:pointer;transition:transform .2s,filter .2s}
 .btn:hover{transform:translateY(-2px)}.btn:active{transform:scale(.97)}
 .btn-wifi{background:var(--green);color:var(--ink)}
-.btn-ts{background:var(--blue);color:#fff}
 .btn-serial{background:var(--ink);color:#fff}
 .btn.live{background:var(--coral);color:#fff}
 .grid2{display:grid;grid-template-columns:2fr 1fr;gap:22px;align-items:start}
@@ -188,7 +187,7 @@ footer{height:90px}
         <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/87/ESP-WROOM-32_ESP32_ESP-32S_Development_Board.jpg/440px-ESP-WROOM-32_ESP32_ESP-32S_Development_Board.jpg" alt="ESP32 Gateway" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=400&auto=format&fit=crop&q=80';">
       </div>
       <h4>ESP32 & Uno Gateway</h4>
-      <p>Dual-core microcontrollers streaming data via WebSocket, Bluetooth, & ThingSpeak.</p>
+      <p>Dual-core microcontrollers streaming telemetry over Wi-Fi, Bluetooth, & Cloud.</p>
       <span class="sensor-badge">38400 Serial Bridge</span>
     </div>
   </div>
@@ -196,21 +195,14 @@ footer{height:90px}
 
 <!-- CONNECTION SECTION -->
 <section class="blk" id="connect">
-  <h2>Connect your telemetry stream.</h2>
-  <p class="lead">Select your connection mode below. ThingSpeak HTTPS streaming works directly on Vercel without local Wi-Fi IP blocks!</p>
+  <h2>Connect your sensor.</h2>
+  <p class="lead">Stream from the ESP32 over Wi-Fi or pair it over Serial/Bluetooth, then point triage at your tunnel.</p>
   <div class="card conn">
-    <div class="field">
-      <label for="tsChannelId">ThingSpeak Channel (HTTPS)</label>
-      <input id="tsChannelId" type="text" value="3546624" placeholder="3546624">
-    </div>
-    <button id="tsBtn" class="btn btn-ts" onclick="toggleThingSpeakStream()">Stream ThingSpeak HTTPS</button>
-
     <div class="field">
       <label for="wsUrl">ESP32 WebSocket (Wi-Fi)</label>
       <input id="wsUrl" type="text" value="ws://10.36.5.76:81" placeholder="ws://10.36.5.76:81">
     </div>
     <button id="connectBtn" class="btn btn-wifi" onclick="toggleWebSocket()">Connect Wi-Fi</button>
-
     <button id="serialBtn" class="btn btn-serial" onclick="toggleWebSerial()">Pair Serial/BT</button>
 
     <div class="field">
@@ -263,7 +255,7 @@ footer{height:90px}
     <aside class="card" id="triage">
       <div class="tri-h"><h3>LLM triage assessment</h3><span id="triageBadge">Idle</span></div>
       <div id="triageResult">
-        <p class="empty">Connect your ESP32 feed over ThingSpeak HTTPS, Wi-Fi WebSocket, or Bluetooth Serial, then select <b>Run AI Triage Check</b> to analyze vitals.</p>
+        <p class="empty">Connect your ESP32 feed over Wi-Fi or Bluetooth Serial, then select <b>Run AI Triage Check</b> to analyze vitals.</p>
       </div>
       <label class="check"><input type="checkbox" id="autoTriageCheck"><span class="sw"></span><span>Auto-triage on abnormal vital breaches</span></label>
       <button id="triageBtn" onclick="requestAiTriage()">⚡ Run AI Triage Check</button>
@@ -277,6 +269,8 @@ footer{height:90px}
   let serialPort = null;
   let serialReader = null;
   let thingSpeakTimer = null;
+  const DEFAULT_THINGSPEAK_CHANNEL = "3546624"; // Quiet Background Fallback
+
   let currentBpm = 0, currentSpO2 = 0, currentEcg = 0, currentExg = 0;
   let lastAutoTriggerTime = 0;
 
@@ -338,28 +332,17 @@ footer{height:90px}
     } catch (e) {}
   }
 
-  // 1. ThingSpeak HTTPS Stream (Works seamlessly on Vercel)
-  function toggleThingSpeakStream() {
-    const btn = document.getElementById('tsBtn');
-    if (thingSpeakTimer) {
-      clearInterval(thingSpeakTimer);
-      thingSpeakTimer = null;
-      setConnectionStatus('Offline', 'slate');
-      btn.textContent = 'Stream ThingSpeak HTTPS';
-      btn.className = 'btn btn-ts';
-      return;
-    }
-
-    const channelId = document.getElementById('tsChannelId').value.trim();
-    if (!channelId) { alert("Please enter a valid ThingSpeak Channel ID."); return; }
-
-    setConnectionStatus('ThingSpeak HTTPS Active', 'blue');
-    btn.textContent = 'Disconnect TS';
-    btn.className = 'btn live';
+  // Automatic Background ThingSpeak HTTPS Failover
+  function startThingSpeakFallback() {
+    if (thingSpeakTimer) return;
+    setConnectionStatus('Cloud Connected (HTTPS)', 'blue');
+    const b = document.getElementById('connectBtn');
+    b.textContent = 'Disconnect';
+    b.className = 'btn live';
 
     async function fetchTS() {
       try {
-        const res = await fetch(`https://api.thingspeak.com/channels/${channelId}/feeds.json?results=1`);
+        const res = await fetch(`https://api.thingspeak.com/channels/${DEFAULT_THINGSPEAK_CHANNEL}/feeds.json?results=1`);
         if (res.ok) {
           const data = await res.json();
           if (data.feeds && data.feeds.length > 0) {
@@ -372,39 +355,74 @@ footer{height:90px}
             });
           }
         }
-      } catch (err) { console.error("ThingSpeak Fetch Error:", err); }
+      } catch (err) { console.error("ThingSpeak Error:", err); }
     }
 
     fetchTS();
     thingSpeakTimer = setInterval(fetchTS, 3000);
   }
 
-  // 2. Wi-Fi WebSocket Stream
+  function stopThingSpeakFallback() {
+    if (thingSpeakTimer) {
+      clearInterval(thingSpeakTimer);
+      thingSpeakTimer = null;
+    }
+  }
+
+  // Hybrid Wi-Fi Connection Switcher (Direct WebSocket with Automatic Cloud Fallback)
   function toggleWebSocket() {
+    const b = document.getElementById('connectBtn');
+
+    if (thingSpeakTimer) {
+      stopThingSpeakFallback();
+      setConnectionStatus('Offline', 'slate');
+      b.textContent = 'Connect Wi-Fi';
+      b.className = 'btn btn-wifi';
+      return;
+    }
+
     if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) {
       socket.close();
       return;
     }
+
     const url = document.getElementById('wsUrl').value.trim();
-    socket = new WebSocket(url);
+    let wsFailed = false;
+
+    try {
+      socket = new WebSocket(url);
+    } catch (err) {
+      console.warn("Direct WebSocket blocked. Triggering cloud fallback...");
+      startThingSpeakFallback();
+      return;
+    }
 
     socket.onopen = () => {
+      stopThingSpeakFallback();
       setConnectionStatus('Wi-Fi Connected (100 Hz)', 'emerald');
-      const b = document.getElementById('connectBtn');
       b.textContent = 'Disconnect';
       b.className = 'btn live';
     };
+
     socket.onmessage = (event) => { processTelemetryPacket(event.data); };
-    socket.onerror = (err) => { console.error("WebSocket Connection Error:", err); };
+
+    socket.onerror = (err) => {
+      console.warn("WebSocket IP blocked by browser security. Falling back to Cloud stream...");
+      wsFailed = true;
+      if (socket) socket.close();
+      startThingSpeakFallback();
+    };
+
     socket.onclose = () => {
-      setConnectionStatus('Offline', 'slate');
-      const b = document.getElementById('connectBtn');
-      b.textContent = 'Connect Wi-Fi';
-      b.className = 'btn btn-wifi';
+      if (!wsFailed && !thingSpeakTimer) {
+        setConnectionStatus('Offline', 'slate');
+        b.textContent = 'Connect Wi-Fi';
+        b.className = 'btn btn-wifi';
+      }
     };
   }
 
-  // 3. Web Serial / Bluetooth Stream
+  // Web Serial / Bluetooth Direct Link
   async function toggleWebSerial() {
     if (!("serial" in navigator)) {
       alert("Web Serial API is not supported in this browser. Please use Chrome or MS Edge.");
@@ -415,6 +433,7 @@ footer{height:90px}
       if (serialReader) await serialReader.cancel();
       await serialPort.close();
       serialPort = null;
+      stopThingSpeakFallback();
       setConnectionStatus('Offline', 'slate');
       sb.textContent = 'Pair Serial/BT';
       sb.className = 'btn btn-serial';
@@ -424,6 +443,7 @@ footer{height:90px}
       serialPort = await navigator.serial.requestPort();
       await serialPort.open({ baudRate: 115200 });
 
+      stopThingSpeakFallback();
       setConnectionStatus('Serial/BT Connected', 'indigo');
       sb.textContent = 'Disconnect BT';
       sb.className = 'btn live';
