@@ -30,7 +30,7 @@ nav{position:fixed;z-index:20;top:16px;left:16px;right:16px;height:66px;padding:
 .cta{background:var(--green);color:var(--ink);font-weight:700;font-size:.9rem;padding:11px 18px;border-radius:99px;transition:transform .2s,filter .2s}
 .cta:hover{transform:translateY(-2px);filter:brightness(1.05)}
 
-/* CLEAN HERO SECTION (CARDS REMOVED) */
+/* CLEAN HERO SECTION */
 .hero{position:relative;padding:160px 24px 80px;text-align:center;max-width:1100px;margin:0 auto}
 h1{font-size:clamp(56px,13.4vw,200px);line-height:.9;font-weight:900;letter-spacing:-.045em;animation:rise .9s cubic-bezier(.2,.8,.2,1) both}
 .tag{max-width:580px;margin:32px auto 0;font-size:1.2rem;line-height:1.55;color:var(--mute)}
@@ -139,7 +139,7 @@ footer{height:90px}
   <a class="cta" href="#triage">Run triage</a>
 </nav>
 
-<!-- CLEAN HERO SECTION -->
+<!-- HERO SECTION -->
 <header class="hero" id="home">
   <svg class="doodle d1" viewBox="0 0 70 70"><line x1="35" y1="3" x2="35" y2="67"/><line x1="3" y1="35" x2="67" y2="35"/><line x1="12" y1="12" x2="58" y2="58"/><line x1="58" y1="12" x2="12" y2="58"/></svg>
   <svg class="doodle d2" viewBox="0 0 90 90"><path d="M60 8c20-8 30 20 8 28-12 4-30 0-42 8-14 8-6 36 14 30"/></svg>
@@ -155,7 +155,6 @@ footer{height:90px}
   <p class="lead">Hardware sensors attached to the patient streaming 100 Hz medical telemetry.</p>
   
   <div class="sensor-grid">
-    <!-- AD8232 ECG Sensor -->
     <div class="sensor-card">
       <div class="sensor-img-box">
         <img src="https://raw.githubusercontent.com/sparkfun/AD8232_Single_Lead_Heart_Rate_Monitor/master/Hardware/AD8232.jpg" alt="AD8232 ECG Sensor" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=400&auto=format&fit=crop&q=80';">
@@ -165,7 +164,6 @@ footer{height:90px}
       <span class="sensor-badge">ECG Lead I (A0)</span>
     </div>
 
-    <!-- MAX30102 Pulse Oximeter -->
     <div class="sensor-card">
       <div class="sensor-img-box">
         <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/e/e0/Pulse_oximeter_sensor.jpg/440px-Pulse_oximeter_sensor.jpg" alt="MAX30102 Sensor" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1584515979956-d9f6e5d09982?w=400&auto=format&fit=crop&q=80';">
@@ -175,7 +173,6 @@ footer{height:90px}
       <span class="sensor-badge">I2C (0x57)</span>
     </div>
 
-    <!-- BioAmp EXG Pill -->
     <div class="sensor-card">
       <div class="sensor-img-box">
         <img src="https://raw.githubusercontent.com/UpsideDownLabs/BioAmp-EXG-Pill/main/hardware/BioAmp-EXG-Pill-v1.0b.jpg" alt="BioAmp EXG Pill" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1518770660439-4636190af475?w=400&auto=format&fit=crop&q=80';">
@@ -185,7 +182,6 @@ footer{height:90px}
       <span class="sensor-badge">EMG Out (A1)</span>
     </div>
 
-    <!-- ESP32 + Arduino Gateway Stack -->
     <div class="sensor-card">
       <div class="sensor-img-box">
         <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/87/ESP-WROOM-32_ESP32_ESP-32S_Development_Board.jpg/440px-ESP-WROOM-32_ESP32_ESP-32S_Development_Board.jpg" alt="ESP32 Gateway" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=400&auto=format&fit=crop&q=80';">
@@ -203,7 +199,7 @@ footer{height:90px}
   <p class="lead">Stream from the ESP32 over Wi-Fi or pair it over Serial/Bluetooth, then point triage at your tunnel.</p>
   <div class="card conn">
     <div class="field"><label for="wsUrl">ESP32 WebSocket (Wi-Fi)</label>
-      <input id="wsUrl" type="text" value="ws://vitalpal.local:81" placeholder="ws://vitalpal.local:81"></div>
+      <input id="wsUrl" type="text" value="ws://10.36.5.76:81" placeholder="ws://10.36.5.76:81"></div>
     <button id="connectBtn" class="btn btn-wifi" onclick="toggleWebSocket()">Connect Wi-Fi</button>
     <button id="serialBtn" class="btn btn-serial" onclick="toggleWebSerial()">Pair Serial/BT</button>
     <div class="field"><label for="apiUrl">Cloudflare Tunnel API</label>
@@ -216,7 +212,6 @@ footer{height:90px}
   <h2>Live Patient Telemetry</h2>
   <p class="lead">Real-time vital sign metrics and 100 Hz biopotential streams.</p>
 
-  <!-- LIVE METRICS CARD BAR -->
   <div class="vitals-bar">
     <div class="v-card">
       <div class="label"><span>Heart Rate</span><svg id="heartIcon" class="heart" viewBox="0 0 24 24"><path d="M12 21s-7.5-4.6-9.6-9.4C.9 8.1 3 4.5 6.6 4.5c2 0 3.6 1.1 5.4 3 1.8-1.9 3.4-3 5.4-3 3.6 0 5.7 3.6 4.2 7.1C19.5 16.4 12 21 12 21z"/></svg></div>
@@ -265,14 +260,12 @@ footer{height:90px}
 <footer></footer>
 
 <script>
-  // Global System State
   let socket = null;
   let serialPort = null;
   let serialReader = null;
   let currentBpm = 0, currentSpO2 = 0, currentEcg = 0, currentExg = 0;
   let lastAutoTriggerTime = 0;
 
-  // Waveform Buffers (300 Points)
   const ecgBuffer = new Array(300).fill(0);
   const emgBuffer = new Array(300).fill(0);
   const ecgCanvas = document.getElementById('ecgCanvas');
@@ -296,7 +289,6 @@ footer{height:90px}
     }
   }
 
-  // Central Packet Parsing & UI Updater
   function processTelemetryPacket(jsonString) {
     try {
       const telemetry = JSON.parse(jsonString);
@@ -336,7 +328,6 @@ footer{height:90px}
     }
   }
 
-  // 1. Wi-Fi WebSocket Stream
   function toggleWebSocket() {
     if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) {
       socket.close();
@@ -352,6 +343,9 @@ footer{height:90px}
       b.className = 'btn live';
     };
     socket.onmessage = (event) => { processTelemetryPacket(event.data); };
+    socket.onerror = (err) => {
+      console.error("WebSocket Connection Error:", err);
+    };
     socket.onclose = () => {
       setConnectionStatus('Offline', 'slate');
       const b = document.getElementById('connectBtn');
@@ -360,7 +354,6 @@ footer{height:90px}
     };
   }
 
-  // 2. Web Serial / Bluetooth Fallback
   async function toggleWebSerial() {
     if (!("serial" in navigator)) {
       alert("Web Serial API is not supported in this browser. Please use Google Chrome or MS Edge.");
@@ -411,7 +404,6 @@ footer{height:90px}
     statusEl.className = color;
   }
 
-  // Oscilloscope Canvas Rendering Loop
   function drawWaveform(ctx, canvas, buffer, color, maxAmplitude) {
     const W = canvas.width, H = canvas.height, d = window.devicePixelRatio || 1;
     ctx.clearRect(0, 0, W, H);
@@ -468,13 +460,13 @@ footer{height:90px}
   renderLoop();
 
   const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&','<':'<','>':'>','"':'"',"'":'''}[c]));
+  
   function setBadge(text, cls) {
     const b = document.getElementById('triageBadge');
     b.textContent = text;
     b.className = cls;
   }
 
-  // Query Llama Model via Cloudflare Tunnel
   async function requestAiTriage() {
     let baseUrl = document.getElementById('apiUrl').value.trim().replace(/\/$/, "");
     if (!baseUrl) {
